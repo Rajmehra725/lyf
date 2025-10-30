@@ -74,31 +74,52 @@ export default function UserDashboard() {
 
   // 📤 Upload post
   const handleUpload = async () => {
-    if (!file || !caption.trim()) {
-      alert("Please select a file and add a caption!");
+  if (!file || !caption.trim()) {
+    alert("Please select a file and add a caption!");
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please login first!");
       return;
     }
 
-    try {
-      const token = localStorage.getItem("token");
-      const formData = new FormData();
-      formData.append("caption", caption);
-      formData.append("media", file);
+    const formData = new FormData();
+    formData.append("caption", caption);
+    formData.append("media", file);
 
-      await axios.post(
-        "https://raaznotes-backend.onrender.com/api/posts",
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    const res = await axios.post(
+      "https://raaznotes-backend.onrender.com/api/posts",
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
 
-      setOpen(false);
-      setCaption("");
-      setFile(null);
-    } catch (err) {
-      console.error("Error uploading post:", err);
-      if (err.response?.status === 401) handleLogout();
+    console.log("✅ Upload Success:", res.data);
+    setOpen(false);
+    setCaption("");
+    setFile(null);
+    fetchPosts(); // refresh posts
+  } catch (err) {
+    console.error("❌ Upload Error:", err);
+
+    // Show detailed error info
+    if (err.response) {
+      alert(`Server Error: ${err.response.status} - ${err.response.data.message || "Upload failed"}`);
+    } else if (err.request) {
+      alert("No response from server. Backend might be down.");
+    } else {
+      alert(`Error: ${err.message}`);
     }
-  };
+  }
+};
+
 
   // 🚪 Logout
   const handleLogout = () => {
