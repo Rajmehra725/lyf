@@ -19,7 +19,6 @@ import { HiMenu } from "react-icons/hi"; // React Icons Hamburger
 const navItems = [
   { text: "Home", path: "/" },
   { text: "About", path: "/about" },
-  { text: "Dashboard", path: "/dashboard" },
   { text: "Feelings", path: "/feelings" },
   { text: "Safety", path: "/safety" },
   { text: "Upload", path: "/upload" },

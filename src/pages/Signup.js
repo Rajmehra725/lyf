@@ -3,8 +3,8 @@ import { TextField, Button, Typography, Container, Box, Link } from "@mui/materi
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-export default function Login() {
-  const [form, setForm] = useState({ email: "", password: "" });
+export default function Signup() {
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
@@ -16,36 +16,31 @@ export default function Login() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await axios.post("https://raaznotes-backend.onrender.com/api/auth/login", form);
-
-      if (res.data.token && res.data.user) {
-        localStorage.setItem("token", res.data.token);
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-
-        const role = res.data.user.role;
-        setMessage("Login successful! Redirecting...");
-
-        setTimeout(() => {
-          if (role === "admin") navigate("/admin-dashboard");
-          else navigate("/dashboard");
-        }, 1000);
-      } else {
-        setMessage("Invalid response from server.");
-      }
+      const res = await axios.post("https://raaznotes-backend.onrender.com/api/auth/register", form);
+      localStorage.setItem("token", res.data.token);
+      setMessage("Signup successful! Redirecting to login...");
+      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      setMessage(err.response?.data?.message || "Login failed");
-    } finally {
-      setLoading(false);
+      setMessage(err.response?.data?.message || "Signup failed");
     }
+    setLoading(false);
   };
 
   return (
     <Container maxWidth="xs">
       <Box sx={{ mt: 8, p: 3, border: "1px solid #ddd", borderRadius: 2, boxShadow: 3 }}>
         <Typography variant="h5" align="center" gutterBottom>
-          💕 Welcome Back
+          💖 Create Account
         </Typography>
         <form onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Name"
+            name="name"
+            onChange={handleChange}
+            required
+          />
           <TextField
             fullWidth
             margin="normal"
@@ -71,13 +66,13 @@ export default function Login() {
             disabled={loading}
             sx={{ mt: 2 }}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Creating..." : "Sign Up"}
           </Button>
         </form>
         <Typography align="center" sx={{ mt: 2 }}>
-          Don’t have an account?{" "}
-          <Link component="button" onClick={() => navigate("/signup")}>
-            Sign up here
+          Already have an account?{" "}
+          <Link component="button" onClick={() => navigate("/login")}>
+            Login here
           </Link>
         </Typography>
         {message && (
