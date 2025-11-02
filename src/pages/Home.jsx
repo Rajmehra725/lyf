@@ -1,140 +1,312 @@
-// src/pages/Home/Home.jsx
-import React from "react";
-import { Container, Box, Typography, Grid, Card, CardContent, Stack, Button } from "@mui/material";
-import { Link } from "react-router-dom";
-import { FaHeart, FaShieldAlt, FaCloudUploadAlt } from "react-icons/fa";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import {
+  Card,
+  CardHeader,
+  CardMedia,
+  CardContent,
+  Avatar,
+  IconButton,
+  Typography,
+  Grid,
+  Box,
+  CircularProgress,
+  TextField,
+  Button,
+  Collapse,
+} from "@mui/material";
 import { motion } from "framer-motion";
+import { FaHeart, FaRegHeart, FaCommentDots, FaShareAlt } from "react-icons/fa";
+import moment from "moment";
 
-// Motion version of MUI Button
-const MotionButton = motion(Button);
+const API_BASE = "https://raaznotes-backend.onrender.com/api";
 
-const cardData = [
-  {
-    title: "Feelings ❤️",
-    desc: "Express your feelings freely and track your emotions daily.\nअपने भावनाओं को व्यक्त करें और अपने मन की स्थिति को दैनिक रूप से ट्रैक करें।",
-    icon: <FaHeart size={36} color="#e91e63" />,
-    path: "/feelings",
-  },
-  {
-    title: "Safety 🛡️",
-    desc: "Protect your mind, body, and digital space.\nअपने मन, शरीर और डिजिटल स्पेस को सुरक्षित रखें।",
-    icon: <FaShieldAlt size={36} color="#1976d2" />,
-    path: "/safety",
-  },
-  {
-    title: "Upload ☁️",
-    desc: "Upload your memories safely via Cloudinary.\nअपनी यादों को सुरक्षित रूप से क्लाउड में अपलोड करें।",
-    icon: <FaCloudUploadAlt size={36} color="#4caf50" />,
-    path: "/upload",
-  },
-];
+const HomeFeed = () => {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState({});
+  const [newComment, setNewComment] = useState({});
 
-export default function Home() {
-  return (
-    <Container maxWidth="lg" sx={{ mt: 8, mb: 8 }}>
-      {/* Hero Section */}
+  const token = localStorage.getItem("token");
+  const userData = JSON.parse(localStorage.getItem("user"));
+  const currentUserId = userData?._id;
+
+  // 📦 Fetch all posts
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${API_BASE}/posts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPosts(res.data);
+    } catch (err) {
+      console.error("Post fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ❤️ Like or Unlike a post
+  const toggleLike = async (id) => {
+    try {
+      const res = await axios.put(
+        `${API_BASE}/posts/${id}/like`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPosts((prev) =>
+        prev.map((p) => (p._id === id ? res.data : p))
+      );
+    } catch (err) {
+      console.error("Like error:", err);
+    }
+  };
+
+  // 💬 Add comment
+  const handleAddComment = async (postId) => {
+    const content = newComment[postId]?.trim();
+    if (!content) return;
+
+    try {
+      const res = await axios.post(
+        `${API_BASE}/posts/${postId}/comments`,
+        { text: content },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          p._id === postId
+            ? { ...p, comments: [...p.comments, res.data] }
+            : p
+        )
+      );
+
+      setNewComment((prev) => ({ ...prev, [postId]: "" }));
+    } catch (err) {
+      console.error("Comment add error:", err);
+    }
+  };
+
+  const toggleExpand = (id) => {
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  if (loading) {
+    return (
       <Box
-        sx={{
-          textAlign: "center",
-          p: 6,
-          borderRadius: 3,
-          background: "linear-gradient(135deg, #e3f2fd, #bbdefb)",
-          boxShadow: 4,
-          mb: 6,
-        }}
-        component={motion.div}
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="80vh"
       >
-        <Stack direction="row" justifyContent="center" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-          <FaHeart size={36} color="#e91e63" />
-          <Typography variant="h3" sx={{ fontWeight: "bold" }}>
-            Welcome to LYF
-          </Typography>
-        </Stack>
+        <CircularProgress color="warning" />
+      </Box>
+    );
+  }
 
-        <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>
-          Live Your Life. Love Your Feelings.<br />
-          अपने जीवन को जियो। अपने भावनाओं से प्यार करो।<br />
-          This is your emotional and digital safe space.<br />
-          यह आपका भावनात्मक और डिजिटल सुरक्षित स्थान है।
-        </Typography>
-
-        <MotionButton
-          variant="contained"
-          color="primary"
-          size="large"
-          component={Link}
-          to="/dashboard"
-          sx={{
-            borderRadius: 3,
-            textTransform: "none",
-            fontWeight: "bold",
-            px: 5,
-            boxShadow: 3,
-          }}
-          whileHover={{ scale: 1.05 }}
+  return (
+    <Box sx={{ backgroundColor: "#f5f5f5", minHeight: "100vh", p: 2 }}>
+      {posts.length === 0 ? (
+        <Typography
+          variant="h6"
+          align="center"
+          color="text.secondary"
+          sx={{ mt: 10 }}
         >
-          Get Started / शुरू करें
-        </MotionButton>
-      </Box>
-
-      {/* Quick Cards Section */}
-      <Grid container spacing={4}>
-        {cardData.map((card, index) => (
-          <Grid item xs={12} md={4} key={index}>
-            <Card
-              component={motion.div}
-              whileHover={{ scale: 1.05 }}
-              sx={{
-                textAlign: "center",
-                p: 3,
-                boxShadow: 3,
-                borderRadius: 3,
-                cursor: "pointer",
-              }}
-              onClick={() => window.location.href = card.path}
-            >
-              <Box sx={{ mb: 2 }}>{card.icon}</Box>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {card.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-line" }}>
-                  {card.desc}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Testimonials / Quotes */}
-      <Box sx={{ mt: 8, textAlign: "center" }}>
-        <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>
-          What our users say / हमारे उपयोगकर्ता कहते हैं
+          No posts yet 💤
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ fontStyle: "italic" }}>
-          "LYF helped me express my emotions and feel safe online.<br />
-          LYF ने मुझे अपनी भावनाओं को व्यक्त करने और ऑनलाइन सुरक्षित महसूस करने में मदद की।"
-        </Typography>
-      </Box>
+      ) : (
+        <Grid container spacing={3} justifyContent="center">
+          {posts.map((post) => (
+            <Grid item xs={12} sm={8} md={5} key={post._id}>
+              <motion.div
+                whileHover={{ scale: 1.01 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card
+                  sx={{
+                    borderRadius: 3,
+                    boxShadow: 3,
+                    backgroundColor: "#fff",
+                  }}
+                >
+                  {/* 👤 User info */}
+                  <CardHeader
+                    avatar={
+                      <Avatar
+                        src={post.author?.profilePicture?.url || ""}
+                        sx={{
+                          bgcolor: "#ff7043",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {!post.author?.profilePicture?.url &&
+                          post.author?.name?.charAt(0)}
+                      </Avatar>
+                    }
+                    title={
+                      <Typography variant="subtitle1" fontWeight="600">
+                        {post.author?.name || "Unknown User"}
+                      </Typography>
+                    }
+                    subheader={moment(post.createdAt).fromNow()}
+                  />
 
-      {/* Optional CTA Section */}
-      <Box sx={{ mt: 8, textAlign: "center" }}>
-        <MotionButton
-          variant="outlined"
-          color="primary"
-          size="large"
-          component={Link}
-          to="/dashboard"
-          sx={{ textTransform: "none", fontWeight: "bold", px: 5, borderRadius: 3 }}
-          whileHover={{ scale: 1.05 }}
-        >
-          Go to Dashboard / डैशबोर्ड पर जाएँ
-        </MotionButton>
-      </Box>
-    </Container>
+                  {/* 🖼️ Post image */}
+                  {post.mediaUrl && (
+                    <CardMedia
+                      component="img"
+                      height="400"
+                      image={post.mediaUrl}
+                      alt="Post Media"
+                      sx={{ objectFit: "cover" }}
+                    />
+                  )}
+
+                  {/* ❤️ Like / 💬 Comment / 🔗 Share */}
+                  <Box display="flex" alignItems="center" px={2} pt={1}>
+                    <IconButton onClick={() => toggleLike(post._id)}>
+                      {post.likes?.includes(currentUserId) ? (
+                        <FaHeart color="red" size={20} />
+                      ) : (
+                        <FaRegHeart size={20} />
+                      )}
+                    </IconButton>
+
+                    <IconButton onClick={() => toggleExpand(post._id)}>
+                      <FaCommentDots size={20} />
+                    </IconButton>
+
+                    <IconButton>
+                      <FaShareAlt size={20} />
+                    </IconButton>
+                  </Box>
+
+                  {/* 👍 Like count */}
+                  <Typography
+                    variant="body2"
+                    fontWeight="600"
+                    color="text.primary"
+                    px={2}
+                  >
+                    {post.likes?.length || 0} likes
+                  </Typography>
+
+                  {/* 📝 Caption */}
+                  <CardContent sx={{ pt: 0 }}>
+                    <Typography variant="body2" color="text.primary">
+                      <strong>{post.author?.name}</strong> {post.content}
+                    </Typography>
+                    {post.feelingType && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                        sx={{ mt: 0.5 }}
+                      >
+                        Feeling {post.feelingType.replace("-", " ")}
+                      </Typography>
+                    )}
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      display="block"
+                      sx={{ mt: 1 }}
+                    >
+                      {moment(post.createdAt).format("MMM D, YYYY • h:mm A")}
+                    </Typography>
+                  </CardContent>
+
+                  {/* 💬 Comments */}
+                  <Collapse
+                    in={expanded[post._id]}
+                    timeout="auto"
+                    unmountOnExit
+                  >
+                    <CardContent
+                      sx={{ borderTop: "1px solid #eee", pt: 1 }}
+                    >
+                      <Typography
+                        variant="body2"
+                        fontWeight="600"
+                        sx={{ mb: 1 }}
+                      >
+                        Comments
+                      </Typography>
+
+                      {post.comments.length === 0 ? (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                        >
+                          No comments yet
+                        </Typography>
+                      ) : (
+                        post.comments.map((c, i) => (
+                          <Box key={i} sx={{ mb: 1 }}>
+                            <Typography variant="body2">
+                              <strong>{c.user?.name || "User"}:</strong>{" "}
+                              {c.text}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {moment(c.createdAt).fromNow()}
+                            </Typography>
+                          </Box>
+                        ))
+                      )}
+
+                      {/* ➕ Add comment */}
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        mt={2}
+                        gap={1}
+                      >
+                        <TextField
+                          variant="outlined"
+                          size="small"
+                          placeholder="Add a comment..."
+                          fullWidth
+                          value={newComment[post._id] || ""}
+                          onChange={(e) =>
+                            setNewComment((prev) => ({
+                              ...prev,
+                              [post._id]: e.target.value,
+                            }))
+                          }
+                        />
+                        <Button
+                          variant="contained"
+                          size="small"
+                          sx={{
+                            backgroundColor: "#ff7043",
+                            "&:hover": {
+                              backgroundColor: "#ff5722",
+                            },
+                          }}
+                          onClick={() => handleAddComment(post._id)}
+                        >
+                          Post
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Collapse>
+                </Card>
+              </motion.div>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+    </Box>
   );
-}
+};
+
+export default HomeFeed;
