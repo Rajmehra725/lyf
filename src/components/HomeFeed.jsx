@@ -12,15 +12,23 @@ import {
   Button,
 } from "@mui/material";
 import { motion } from "framer-motion";
-import { FaHeart, FaRegHeart, FaCommentDots, FaShareAlt } from "react-icons/fa";
+import {
+  FaHeart,
+  FaRegHeart,
+  FaCommentDots,
+  FaShareAlt,
+} from "react-icons/fa";
 import { FiTrash2 } from "react-icons/fi";
 import axios from "axios";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+
+dayjs.extend(relativeTime);
 
 const API = "https://raaznotes-backend.onrender.com/api";
 
 export default function HomeFeed() {
   const [posts, setPosts] = useState([]);
-  const [likes, setLikes] = useState({});
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState(null);
   const [openCommentModal, setOpenCommentModal] = useState(false);
@@ -28,14 +36,13 @@ export default function HomeFeed() {
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState([]);
 
-  // ✅ Load user + posts on mount
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     setUserData(user);
     fetchPosts();
   }, []);
 
-  // ✅ Fetch all posts
+  // 🧠 Fetch Posts
   const fetchPosts = async () => {
     try {
       setLoading(true);
@@ -51,12 +58,34 @@ export default function HomeFeed() {
     }
   };
 
-  // ✅ Like toggle (frontend only)
-  const toggleLike = (id) => {
-    setLikes((prev) => ({ ...prev, [id]: !prev[id] }));
+  // ❤️ Like/Unlike Toggle (Smooth Instant Update)
+  const toggleLike = async (postId) => {
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p._id === postId) {
+          const alreadyLiked = p.likes.includes(userData?._id);
+          const updatedLikes = alreadyLiked
+            ? p.likes.filter((id) => id !== userData._id)
+            : [...p.likes, userData._id];
+          return { ...p, likes: updatedLikes };
+        }
+        return p;
+      })
+    );
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `${API}/posts/${postId}/like`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error("Error toggling like:", err.response?.data || err.message);
+    }
   };
 
-  // ✅ Delete post
+  // 🗑️ Delete Post
   const handleDeletePost = async (id) => {
     if (!window.confirm("Delete this post?")) return;
     try {
@@ -70,14 +99,14 @@ export default function HomeFeed() {
     }
   };
 
-  // ✅ Open comment modal
+  // 💬 Open Comments
   const handleOpenComments = (post) => {
     setSelectedPost(post);
     setComments(post.comments || []);
     setOpenCommentModal(true);
   };
 
-  // ✅ Add comment
+  // ➕ Add Comment
   const handleAddComment = async () => {
     if (!comment.trim()) return;
     try {
@@ -87,12 +116,19 @@ export default function HomeFeed() {
         { text: comment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const newComment = res.data;
+
+      const newComment = {
+        ...res.data,
+        author: {
+          _id: userData._id,
+          name: userData.name,
+        },
+      };
+
       const updatedComments = [...comments, newComment];
       setComments(updatedComments);
       setComment("");
 
-      // update feed
       setPosts((prev) =>
         prev.map((p) =>
           p._id === selectedPost._id ? { ...p, comments: updatedComments } : p
@@ -103,7 +139,7 @@ export default function HomeFeed() {
     }
   };
 
-  // ✅ Delete comment
+  // ❌ Delete Comment
   const handleDeleteComment = async (commentId) => {
     if (!window.confirm("Delete this comment?")) return;
     try {
@@ -112,10 +148,9 @@ export default function HomeFeed() {
         `${API}/posts/${selectedPost._id}/comments/${commentId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
       const updatedComments = comments.filter((c) => c._id !== commentId);
       setComments(updatedComments);
-
-      // Update main posts
       setPosts((prev) =>
         prev.map((p) =>
           p._id === selectedPost._id ? { ...p, comments: updatedComments } : p
@@ -142,30 +177,53 @@ export default function HomeFeed() {
       ) : (
         <Box
           sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "repeat(2, 1fr)",
-              sm: "repeat(3, 1fr)",
-              md: "repeat(4, 1fr)",
-            },
-            gap: 2,
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            maxWidth: 500,
+            mx: "auto",
           }}
         >
           {posts.map((p) => (
             <motion.div
               key={p._id}
-              whileHover={{ scale: 1.03 }}
+              whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.3 }}
             >
               <Box
                 sx={{
-                  bgcolor: "rgba(255,255,255,0.15)",
+                  bgcolor: "rgba(255,255,255,0.12)",
                   borderRadius: 3,
                   boxShadow: 3,
                   overflow: "hidden",
                   backdropFilter: "blur(6px)",
                 }}
               >
+                {/* 👤 Username Section */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    p: 1.5,
+                  }}
+                >
+                  <Avatar
+                    src={p.author?.profilePicture}
+                    sx={{ width: 36, height: 36 }}
+                  />
+                  <Typography variant="body1" fontWeight="bold" color="#fff">
+                    {p.author?.name || "Unknown"}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "gray", ml: "auto" }}
+                  >
+                    {dayjs(p.createdAt).fromNow()}
+                  </Typography>
+                </Box>
+
+                {/* 🖼️ Post Media */}
                 {p.mediaUrl &&
                   (p.mediaUrl.match(/\.(mp4|mov|mkv|webm)$/i) ? (
                     <video
@@ -173,7 +231,7 @@ export default function HomeFeed() {
                       controls
                       style={{
                         width: "100%",
-                        height: 250,
+                        height: 400,
                         objectFit: "cover",
                       }}
                     />
@@ -183,66 +241,115 @@ export default function HomeFeed() {
                       alt="post"
                       style={{
                         width: "100%",
-                        height: 250,
+                        height: 400,
                         objectFit: "cover",
                       }}
                     />
                   ))}
 
-                <Box sx={{ p: 1.5 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Avatar
-                      src={p.author?.profilePicture}
-                      sx={{ width: 30, height: 30 }}
-                    />
-                    <Typography
-                      variant="body2"
-                      fontWeight="bold"
-                      color="#fff"
-                    >
-                      {p.author?.name || "Unknown"}
-                    </Typography>
-                  </Box>
-
+                {/* 📝 Caption */}
+                <Box sx={{ px: 2, pt: 1 }}>
                   <Typography
                     variant="body2"
-                    sx={{ mt: 1, color: "#fff", whiteSpace: "pre-line" }}
+                    sx={{
+                      color: "#fff",
+                      whiteSpace: "pre-line",
+                      fontSize: "0.95rem",
+                    }}
                   >
                     {p.content}
                   </Typography>
 
-                  <CardActions sx={{ p: 0, mt: 1 }}>
-                    <IconButton onClick={() => toggleLike(p._id)}>
-                      {likes[p._id] ? (
-                        <FaHeart color="red" />
-                      ) : (
-                        <FaRegHeart color="white" />
-                      )}
-                    </IconButton>
+                  {/* 💬 Comments Preview */}
+                  {p.comments && p.comments.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      {p.comments.slice(0, 3).map((c) => (
+                        <Typography
+                          key={c._id}
+                          variant="body2"
+                          sx={{ color: "#ccc", fontSize: "0.85rem" }}
+                        >
+                          <strong>{c.author?.name || "User"}:</strong> {c.text}
+                        </Typography>
+                      ))}
 
-                    <IconButton color="inherit" onClick={() => handleOpenComments(p)}>
+                      {p.comments.length > 3 && (
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "#aaa",
+                            mt: 0.5,
+                            fontSize: "0.8rem",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => handleOpenComments(p)}
+                        >
+                          View all {p.comments.length} comments
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </Box>
+
+                {/* ❤️ Like + 💬 Comment + 🔁 Share */}
+                <CardActions
+                  sx={{ p: 1.5, mt: 1, justifyContent: "space-between" }}
+                >
+                  <Box>
+                    <motion.div
+                      whileTap={{ scale: 1.3 }}
+                      transition={{ type: "spring", stiffness: 400 }}
+                      style={{ display: "inline-block" }}
+                    >
+                      <IconButton onClick={() => toggleLike(p._id)}>
+                        {p.likes?.includes(userData?._id) ? (
+                          <FaHeart color="red" size={20} />
+                        ) : (
+                          <FaRegHeart color="white" size={20} />
+                        )}
+                      </IconButton>
+                    </motion.div>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "white", ml: 0.5 }}
+                    >
+                      {p.likes?.length || 0}{" "}
+                      {p.likes?.length === 1 ? "like" : "likes"}
+                    </Typography>
+
+                    <IconButton
+                      color="inherit"
+                      onClick={() => handleOpenComments(p)}
+                    >
                       <FaCommentDots />
                     </IconButton>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "white", ml: 0.5 }}
+                    >
+                      {p.comments?.length || 0}
+                    </Typography>
+                  </Box>
 
+                  <Box>
                     <IconButton color="inherit">
                       <FaShareAlt />
                     </IconButton>
-
                     {(userData?._id === p.author?._id ||
                       userData?.role === "admin") && (
                       <IconButton onClick={() => handleDeletePost(p._id)}>
                         <FiTrash2 color="red" />
                       </IconButton>
                     )}
-                  </CardActions>
-                </Box>
+                  </Box>
+                </CardActions>
               </Box>
             </motion.div>
           ))}
         </Box>
       )}
 
-      {/* ✅ Comments Modal */}
+      {/* 💬 Comments Modal */}
       <Modal open={openCommentModal} onClose={() => setOpenCommentModal(false)}>
         <Box
           sx={{

@@ -12,9 +12,6 @@ export default function Navbar({ onMenuClick }) {
     window.location.href = "/";
   };
 
-  const handleProfile = () => {
-    navigate("/profile");
-  };
 
   return (
     <AppBar
@@ -53,26 +50,7 @@ export default function Navbar({ onMenuClick }) {
         {/* Right Side Buttons */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           {/* Profile Button */}
-          <Button
-            onClick={handleProfile}
-            sx={{
-              color: "#fff",
-              textTransform: "none",
-              fontWeight: "600",
-              fontSize: "0.95rem",
-              border: "1px solid rgba(255,255,255,0.3)",
-              borderRadius: "25px",
-              px: 2,
-              py: 0.5,
-              "&:hover": {
-                background: "linear-gradient(90deg, #FFA500, #FF69B4)",
-                boxShadow: "0 0 10px rgba(255,105,180,0.4)",
-              },
-            }}
-            startIcon={<FiUser />}
-          >
-            Profile
-          </Button>
+      
 
           {/* Logout */}
           <IconButton

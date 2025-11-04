@@ -1,72 +1,122 @@
-// src/components/Sidebar.jsx
-import React, { useEffect, useState } from "react";
-import { Drawer, Box, Avatar, Typography, Divider, List, ListItem, ListItemButton, ListItemText } from "@mui/material";
-import axios from "axios";
+import React from "react";
+import {
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Divider,
+  Avatar,
+  Box,
+  Typography,
+} from "@mui/material";
+import {
+  FiHome,
+  FiUser,
+  FiSettings,
+  FiBell,
+  FiLogOut,
+  FiHeart,
+} from "react-icons/fi";
 
-const API = "https://raaznotes-backend.onrender.com/api";
-
-export default function Sidebar({ open, onClose }) {
-  const [userData, setUserData] = useState(null);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(`${API}/profile/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setUserData(res.data);
-      } catch {
-        localStorage.clear();
-        window.location.href = "/";
-      }
-    };
-    fetchUser();
-  }, []);
+export default function Sidebar({ open, onClose, onNavigate }) {
+  const user = JSON.parse(localStorage.getItem("user")) || {
+    name: "User",
+    email: "user@example.com",
+    profilePicture: "",
+  };
 
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = "/";
+    window.location.href = "/login";
   };
 
   return (
     <Drawer
-      variant="temporary"
+      anchor="left"
       open={open}
       onClose={onClose}
       sx={{
         "& .MuiDrawer-paper": {
-          width: 240,
-          background: "rgba(255, 255, 255, 0.1)",
+          width: 260,
+          background: "rgba(0,0,0,0.85)",
           backdropFilter: "blur(10px)",
           color: "#fff",
+          borderRight: "2px solid rgba(255,255,255,0.1)",
         },
       }}
     >
-      <Box sx={{ textAlign: "center", mt: 3 }}>
+      {/* 🔹 User Info */}
+      <Box
+        sx={{
+          textAlign: "center",
+          py: 3,
+          borderBottom: "1px solid rgba(255,255,255,0.15)",
+        }}
+      >
         <Avatar
-          src={userData?.profilePicture}
+          src={user.profilePicture}
           sx={{
-            width: 70,
-            height: 70,
-            mx: "auto",
-            border: "2px solid #ff9966",
+            width: 80,
+            height: 80,
+            margin: "auto",
+            border: "2px solid #ff5e62",
           }}
         />
-        <Typography variant="h6" sx={{ mt: 1 }}>
-          {userData?.name || "User"}
+        <Typography variant="h6" sx={{ mt: 1, fontWeight: "bold" }}>
+          {user.name}
+        </Typography>
+        <Typography variant="body2" color="gray">
+          @{user.email?.split("@")[0]}
         </Typography>
       </Box>
-      <Divider sx={{ background: "rgba(255,255,255,0.3)", my: 2 }} />
-      <List>
+
+      {/* 🔹 Sidebar Menu */}
+      <List sx={{ mt: 2 }}>
         <ListItem disablePadding>
-          <ListItemButton onClick={onClose}>
-            <ListItemText primary="🏠 Home Feed" />
+          <ListItemButton onClick={() => onNavigate("home")}>
+            <FiHome size={20} style={{ marginRight: 12 }} />
+            <ListItemText primary="Home Feed" />
           </ListItemButton>
         </ListItem>
+
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => onNavigate("profile")}>
+            <FiUser size={20} style={{ marginRight: 12 }} />
+            <ListItemText primary="Profile" />
+          </ListItemButton>
+        </ListItem>
+
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => onNavigate("lyf")}>
+            <FiHeart
+              size={20}
+              style={{ marginRight: 12, color: "#ff4d4d" }}
+            />
+            <ListItemText primary="Lyf" />
+          </ListItemButton>
+        </ListItem>
+
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => onNavigate("notifications")}>
+            <FiBell size={20} style={{ marginRight: 12 }} />
+            <ListItemText primary="Notifications" />
+          </ListItemButton>
+        </ListItem>
+
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => onNavigate("settings")}>
+            <FiSettings size={20} style={{ marginRight: 12 }} />
+            <ListItemText primary="Settings" />
+          </ListItemButton>
+        </ListItem>
+
+        <Divider sx={{ background: "rgba(255,255,255,0.2)", my: 1 }} />
+
         <ListItem disablePadding>
           <ListItemButton onClick={handleLogout}>
-            <ListItemText primary="🚪 Logout" />
+            <FiLogOut size={20} style={{ marginRight: 12 }} />
+            <ListItemText primary="Logout" />
           </ListItemButton>
         </ListItem>
       </List>
