@@ -1,312 +1,187 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import {
-  Card,
-  CardHeader,
-  CardMedia,
-  CardContent,
-  Avatar,
-  IconButton,
-  Typography,
-  Grid,
-  Box,
-  CircularProgress,
-  TextField,
-  Button,
-  Collapse,
-} from "@mui/material";
+// src/components/Home.jsx
+import React, { useState, useEffect } from "react";
+import { Box, Typography, Container, Button } from "@mui/material";
 import { motion } from "framer-motion";
-import { FaHeart, FaRegHeart, FaCommentDots, FaShareAlt } from "react-icons/fa";
-import moment from "moment";
+import { useNavigate } from "react-router-dom";
+import { FaPlay, FaPause, FaHeart } from "react-icons/fa";
 
-const API_BASE = "https://raaznotes-backend.onrender.com/api";
+export default function Home() {
+  const navigate = useNavigate();
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const quotes = [
+    "जहाँ प्रेम है, वहीं राधा हैं। जहाँ राधा हैं, वहीं कृष्ण हैं। 🌸",
+    "Love Your Life — क्योंकि यह स्वयं राधारानी की कृपा का प्रतिबिंब है। 💕",
+    "प्रेम वह नहीं जो पाता है, प्रेम वह है जो देता है। 💫",
+    "भक्ति से भरा हृदय ही सच्चा जीवन है। 🌿",
+  ];
 
-const HomeFeed = () => {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState({});
-  const [newComment, setNewComment] = useState({});
-
-  const token = localStorage.getItem("token");
-  const userData = JSON.parse(localStorage.getItem("user"));
-  const currentUserId = userData?._id;
-
-  // 📦 Fetch all posts
+ 
+  // Auto change quotes
   useEffect(() => {
-    fetchPosts();
+    const interval = setInterval(() => {
+      setQuoteIndex((prev) => (prev + 1) % quotes.length);
+    }, 4000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchPosts = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${API_BASE}/posts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPosts(res.data);
-    } catch (err) {
-      console.error("Post fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ❤️ Like or Unlike a post
-  const toggleLike = async (id) => {
-    try {
-      const res = await axios.put(
-        `${API_BASE}/posts/${id}/like`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setPosts((prev) =>
-        prev.map((p) => (p._id === id ? res.data : p))
-      );
-    } catch (err) {
-      console.error("Like error:", err);
-    }
-  };
-
-  // 💬 Add comment
-  const handleAddComment = async (postId) => {
-    const content = newComment[postId]?.trim();
-    if (!content) return;
-
-    try {
-      const res = await axios.post(
-        `${API_BASE}/posts/${postId}/comments`,
-        { text: content },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setPosts((prev) =>
-        prev.map((p) =>
-          p._id === postId
-            ? { ...p, comments: [...p.comments, res.data] }
-            : p
-        )
-      );
-
-      setNewComment((prev) => ({ ...prev, [postId]: "" }));
-    } catch (err) {
-      console.error("Comment add error:", err);
-    }
-  };
-
-  const toggleExpand = (id) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  if (loading) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        height="80vh"
-      >
-        <CircularProgress color="warning" />
-      </Box>
-    );
-  }
-
+ 
   return (
-    <Box sx={{ backgroundColor: "#f5f5f5", minHeight: "100vh", p: 2 }}>
-      {posts.length === 0 ? (
+    <Box
+      sx={{
+        minHeight: "100vh",
+        backgroundImage:
+          "url('https://th.bing.com/th/id/OIP.D9mZfKsPAP9I-Pb92x3K6QHaE8?o=7rm=3&rs=1&pid=ImgDetMain&o=7&rm=3')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        color: "#fff",
+        overflow: "hidden",
+      }}
+    >
+      {/* Overlay Blur */}
+      <Box
+        sx={{
+          position: "absolute",
+          inset: 0,
+          backdropFilter: "blur(10px) brightness(0.7)",
+          background: "rgba(0, 0, 0, 0.4)",
+        }}
+      />
+
+      {/* Floating hearts */}
+      {[...Array(10)].map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{ y: "100vh", x: Math.random() * window.innerWidth }}
+          animate={{ y: ["100vh", "-10vh"], opacity: [1, 0] }}
+          transition={{
+            duration: 8 + Math.random() * 4,
+            repeat: Infinity,
+            delay: i * 1.2,
+          }}
+          style={{
+            position: "absolute",
+            color: "#ffb6c1",
+            fontSize: `${Math.random() * 20 + 15}px`,
+          }}
+        >
+          <FaHeart />
+        </motion.div>
+      ))}
+
+      {/* Content Box */}
+      <Container
+        component={motion.div}
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1 }}
+        sx={{
+          position: "relative",
+          zIndex: 2,
+          textAlign: "center",
+          p: 5,
+          borderRadius: 4,
+          background: "rgba(255,255,255,0.08)",
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 0 40px rgba(255,105,180,0.4)",
+          border: "1px solid rgba(255,255,255,0.2)",
+          animation: "aurora 8s infinite linear",
+          maxWidth: 750,
+        }}
+      >
+        {/* Title */}
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: "bold",
+            background:
+              "linear-gradient(90deg,#ff6ec4,#7873f5,#43e97b,#38f9d7)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            mb: 3,
+            letterSpacing: "1px",
+          }}
+        >
+          💕 Love Your Life — राधारानी की कृपा 💕
+        </Typography>
+
+        {/* Description */}
+        <Typography
+          variant="body1"
+          sx={{
+            color: "#eee",
+            fontSize: "1.05rem",
+            lineHeight: 1.8,
+            textAlign: "justify",
+          }}
+        >
+          राधारानी का प्रेम संसार का सबसे पवित्र प्रेम है।  
+          उन्होंने हमें सिखाया कि सच्चा प्रेम पाने में नहीं, देने में है।  
+          जब हम अपने भीतर की करुणा को जगाते हैं, तब ही जीवन “Love Your Life” बनता है।  
+          वृंदावन की हर हवा में, हर बांसुरी की धुन में राधा का नाम बसता है।  
+          उस प्रेम को महसूस करो, उसे जियो, वही सच्चा जीवन है। 🌸
+        </Typography>
+
+        {/* Dynamic Quote */}
         <Typography
           variant="h6"
-          align="center"
-          color="text.secondary"
-          sx={{ mt: 10 }}
+          component={motion.div}
+          key={quoteIndex}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          sx={{
+            mt: 3,
+            fontStyle: "italic",
+            color: "#ffb6c1",
+          }}
         >
-          No posts yet 💤
+          “{quotes[quoteIndex]}”
         </Typography>
-      ) : (
-        <Grid container spacing={3} justifyContent="center">
-          {posts.map((post) => (
-            <Grid item xs={12} sm={8} md={5} key={post._id}>
-              <motion.div
-                whileHover={{ scale: 1.01 }}
-                transition={{ duration: 0.3 }}
-              >
-                <Card
-                  sx={{
-                    borderRadius: 3,
-                    boxShadow: 3,
-                    backgroundColor: "#fff",
-                  }}
-                >
-                  {/* 👤 User info */}
-                  <CardHeader
-                    avatar={
-                      <Avatar
-                        src={post.author?.profilePicture?.url || ""}
-                        sx={{
-                          bgcolor: "#ff7043",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {!post.author?.profilePicture?.url &&
-                          post.author?.name?.charAt(0)}
-                      </Avatar>
-                    }
-                    title={
-                      <Typography variant="subtitle1" fontWeight="600">
-                        {post.author?.name || "Unknown User"}
-                      </Typography>
-                    }
-                    subheader={moment(post.createdAt).fromNow()}
-                  />
 
-                  {/* 🖼️ Post image */}
-                  {post.mediaUrl && (
-                    <CardMedia
-                      component="img"
-                      height="400"
-                      image={post.mediaUrl}
-                      alt="Post Media"
-                      sx={{ objectFit: "cover" }}
-                    />
-                  )}
+        {/* Buttons */}
+        <Box sx={{ mt: 4, display: "flex", justifyContent: "center", gap: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={() => navigate("/dashboard")}
+            sx={{
+              color: "#43e97b",
+              borderColor: "#43e97b",
+              "&:hover": { background: "rgba(67,233,123,0.2)" },
+            }}
+          >
+            🌿 Dashboard पर चलें
+          </Button>
 
-                  {/* ❤️ Like / 💬 Comment / 🔗 Share */}
-                  <Box display="flex" alignItems="center" px={2} pt={1}>
-                    <IconButton onClick={() => toggleLike(post._id)}>
-                      {post.likes?.includes(currentUserId) ? (
-                        <FaHeart color="red" size={20} />
-                      ) : (
-                        <FaRegHeart size={20} />
-                      )}
-                    </IconButton>
+        </Box>
 
-                    <IconButton onClick={() => toggleExpand(post._id)}>
-                      <FaCommentDots size={20} />
-                    </IconButton>
+        {/* Signature */}
+        <Typography
+          variant="subtitle2"
+          sx={{
+            mt: 3,
+            color: "#43e97b",
+            fontStyle: "italic",
+          }}
+        >
+          — राधे राधे 🌿 प्रेम में जीवन, जीवन में राधा 💞
+        </Typography>
+      </Container>
 
-                    <IconButton>
-                      <FaShareAlt size={20} />
-                    </IconButton>
-                  </Box>
-
-                  {/* 👍 Like count */}
-                  <Typography
-                    variant="body2"
-                    fontWeight="600"
-                    color="text.primary"
-                    px={2}
-                  >
-                    {post.likes?.length || 0} likes
-                  </Typography>
-
-                  {/* 📝 Caption */}
-                  <CardContent sx={{ pt: 0 }}>
-                    <Typography variant="body2" color="text.primary">
-                      <strong>{post.author?.name}</strong> {post.content}
-                    </Typography>
-                    {post.feelingType && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        display="block"
-                        sx={{ mt: 0.5 }}
-                      >
-                        Feeling {post.feelingType.replace("-", " ")}
-                      </Typography>
-                    )}
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      display="block"
-                      sx={{ mt: 1 }}
-                    >
-                      {moment(post.createdAt).format("MMM D, YYYY • h:mm A")}
-                    </Typography>
-                  </CardContent>
-
-                  {/* 💬 Comments */}
-                  <Collapse
-                    in={expanded[post._id]}
-                    timeout="auto"
-                    unmountOnExit
-                  >
-                    <CardContent
-                      sx={{ borderTop: "1px solid #eee", pt: 1 }}
-                    >
-                      <Typography
-                        variant="body2"
-                        fontWeight="600"
-                        sx={{ mb: 1 }}
-                      >
-                        Comments
-                      </Typography>
-
-                      {post.comments.length === 0 ? (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                        >
-                          No comments yet
-                        </Typography>
-                      ) : (
-                        post.comments.map((c, i) => (
-                          <Box key={i} sx={{ mb: 1 }}>
-                            <Typography variant="body2">
-                              <strong>{c.user?.name || "User"}:</strong>{" "}
-                              {c.text}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {moment(c.createdAt).fromNow()}
-                            </Typography>
-                          </Box>
-                        ))
-                      )}
-
-                      {/* ➕ Add comment */}
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        mt={2}
-                        gap={1}
-                      >
-                        <TextField
-                          variant="outlined"
-                          size="small"
-                          placeholder="Add a comment..."
-                          fullWidth
-                          value={newComment[post._id] || ""}
-                          onChange={(e) =>
-                            setNewComment((prev) => ({
-                              ...prev,
-                              [post._id]: e.target.value,
-                            }))
-                          }
-                        />
-                        <Button
-                          variant="contained"
-                          size="small"
-                          sx={{
-                            backgroundColor: "#ff7043",
-                            "&:hover": {
-                              backgroundColor: "#ff5722",
-                            },
-                          }}
-                          onClick={() => handleAddComment(post._id)}
-                        >
-                          Post
-                        </Button>
-                      </Box>
-                    </CardContent>
-                  </Collapse>
-                </Card>
-              </motion.div>
-            </Grid>
-          ))}
-        </Grid>
-      )}
+      {/* Aurora Light Animation */}
+      <style>{`
+        @keyframes aurora {
+          0% { box-shadow: 0 0 30px #ff6ec4; }
+          25% { box-shadow: 0 0 40px #7873f5; }
+          50% { box-shadow: 0 0 35px #43e97b; }
+          75% { box-shadow: 0 0 40px #38f9d7; }
+          100% { box-shadow: 0 0 30px #ff6ec4; }
+        }
+      `}</style>
     </Box>
   );
-};
-
-export default HomeFeed;
+}

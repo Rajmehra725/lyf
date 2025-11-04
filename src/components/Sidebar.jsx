@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import React from "react";
 import {
   Drawer,
@@ -38,88 +39,144 @@ export default function Sidebar({ open, onClose, onNavigate }) {
       onClose={onClose}
       sx={{
         "& .MuiDrawer-paper": {
-          width: 260,
-          background: "rgba(0,0,0,0.85)",
-          backdropFilter: "blur(10px)",
+          width: 270,
+          background: "rgba(255,255,255,0.08)",
+          backdropFilter: "blur(15px)",
+          borderRight: "1px solid rgba(255,255,255,0.2)",
+          boxShadow: "4px 0 30px rgba(255,105,180,0.25)",
+          animation: "aurora 10s infinite linear",
           color: "#fff",
-          borderRight: "2px solid rgba(255,255,255,0.1)",
+          transition: "all 0.3s ease-in-out",
         },
       }}
     >
-      {/* 🔹 User Info */}
+      {/* User Section */}
       <Box
         sx={{
           textAlign: "center",
           py: 3,
-          borderBottom: "1px solid rgba(255,255,255,0.15)",
+          borderBottom: "1px solid rgba(255,255,255,0.2)",
         }}
       >
         <Avatar
           src={user.profilePicture}
           sx={{
-            width: 80,
-            height: 80,
+            width: 85,
+            height: 85,
             margin: "auto",
-            border: "2px solid #ff5e62",
+            border: "3px solid rgba(255,255,255,0.5)",
+            boxShadow: "0 0 15px rgba(255,255,255,0.3)",
+            transition: "all 0.4s ease",
+            "&:hover": {
+              transform: "scale(1.05)",
+              boxShadow: "0 0 25px rgba(255,255,255,0.6)",
+            },
           }}
         />
-        <Typography variant="h6" sx={{ mt: 1, fontWeight: "bold" }}>
+        <Typography
+          variant="h6"
+          sx={{
+            mt: 1,
+            fontWeight: "bold",
+            background: "linear-gradient(90deg,#ff6ec4,#7873f5,#43e97b)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
           {user.name}
         </Typography>
-        <Typography variant="body2" color="gray">
+        <Typography
+          variant="body2"
+          sx={{ opacity: 0.7, fontSize: "0.85rem", color: "#ccc" }}
+        >
           @{user.email?.split("@")[0]}
         </Typography>
       </Box>
 
-      {/* 🔹 Sidebar Menu */}
+      {/* Menu List */}
       <List sx={{ mt: 2 }}>
-        <ListItem disablePadding>
-          <ListItemButton onClick={() => onNavigate("home")}>
-            <FiHome size={20} style={{ marginRight: 12 }} />
-            <ListItemText primary="Home Feed" />
-          </ListItemButton>
-        </ListItem>
+        {[
+          { icon: <FiHome />, label: "Home Feed", page: "home" },
+          { icon: <FiUser />, label: "Profile", page: "profile" },
+          { icon: <FiHeart />, label: "Lyf", page: "lyf" },
+          { icon: <FiBell />, label: "Notifications", page: "notifications" },
+          { icon: <FiSettings />, label: "Settings", page: "settings" },
+        ].map((item, i) => (
+          <ListItem disablePadding key={i}>
+            <ListItemButton
+              onClick={() => onNavigate(item.page)}
+              sx={{
+                mx: 1,
+                my: 0.6,
+                borderRadius: "12px",
+                py: 1.2,
+                color: "#fff",
+                fontWeight: 500,
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background: "linear-gradient(90deg,#ff6ec4,#7873f5,#43e97b)",
+                  boxShadow: "0 0 20px rgba(255,255,255,0.3)",
+                  transform: "scale(1.05)",
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: 20,
+                  mr: 1.5,
+                }}
+              >
+                {item.icon}
+              </Box>
+              <ListItemText primary={item.label} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+
+        <Divider sx={{ background: "rgba(255,255,255,0.3)", my: 2 }} />
 
         <ListItem disablePadding>
-          <ListItemButton onClick={() => onNavigate("profile")}>
-            <FiUser size={20} style={{ marginRight: 12 }} />
-            <ListItemText primary="Profile" />
-          </ListItemButton>
-        </ListItem>
-
-        <ListItem disablePadding>
-          <ListItemButton onClick={() => onNavigate("lyf")}>
-            <FiHeart
-              size={20}
-              style={{ marginRight: 12, color: "#ff4d4d" }}
-            />
-            <ListItemText primary="Lyf" />
-          </ListItemButton>
-        </ListItem>
-
-        <ListItem disablePadding>
-          <ListItemButton onClick={() => onNavigate("notifications")}>
-            <FiBell size={20} style={{ marginRight: 12 }} />
-            <ListItemText primary="Notifications" />
-          </ListItemButton>
-        </ListItem>
-
-        <ListItem disablePadding>
-          <ListItemButton onClick={() => onNavigate("settings")}>
-            <FiSettings size={20} style={{ marginRight: 12 }} />
-            <ListItemText primary="Settings" />
-          </ListItemButton>
-        </ListItem>
-
-        <Divider sx={{ background: "rgba(255,255,255,0.2)", my: 1 }} />
-
-        <ListItem disablePadding>
-          <ListItemButton onClick={handleLogout}>
-            <FiLogOut size={20} style={{ marginRight: 12 }} />
+          <ListItemButton
+            onClick={handleLogout}
+            sx={{
+              mx: 1,
+              borderRadius: "12px",
+              py: 1.2,
+              color: "#fff",
+              "&:hover": {
+                background: "linear-gradient(90deg,#ff6ec4,#7873f5,#43e97b)",
+                boxShadow: "0 0 20px rgba(255,255,255,0.3)",
+                transform: "scale(1.05)",
+              },
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                fontSize: 20,
+                mr: 1.5,
+              }}
+            >
+              <FiLogOut />
+            </Box>
             <ListItemText primary="Logout" />
           </ListItemButton>
         </ListItem>
       </List>
+
+      {/* Aurora Glow Animation */}
+      <style>{`
+        @keyframes aurora {
+          0% { box-shadow: 0 0 25px #ff6ec4; }
+          25% { box-shadow: 0 0 35px #7873f5; }
+          50% { box-shadow: 0 0 25px #43e97b; }
+          75% { box-shadow: 0 0 30px #38f9d7; }
+          100% { box-shadow: 0 0 25px #ff6ec4; }
+        }
+      `}</style>
     </Drawer>
   );
 }
