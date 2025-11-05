@@ -1,5 +1,4 @@
-// src/components/Sidebar.jsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Drawer,
   List,
@@ -19,13 +18,33 @@ import {
   FiLogOut,
   FiHeart,
 } from "react-icons/fi";
+import axios from "axios";
+
+const API = "https://raaznotes-backend.onrender.com/api";
 
 export default function Sidebar({ open, onClose, onNavigate }) {
-  const user = JSON.parse(localStorage.getItem("user")) || {
+  const token = localStorage.getItem("token");
+  const [user, setUser] = useState({
     name: "User",
     email: "user@example.com",
-    profilePicture: "",
-  };
+    avatar: "",
+  });
+
+  // 🔄 Fetch latest profile on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await axios.get(`${API}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUser(res.data);
+        localStorage.setItem("user", JSON.stringify(res.data)); // optional: update localStorage
+      } catch (err) {
+        console.error("Failed to fetch profile:", err);
+      }
+    };
+    fetchProfile();
+  }, [token]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -59,7 +78,7 @@ export default function Sidebar({ open, onClose, onNavigate }) {
         }}
       >
         <Avatar
-          src={user.profilePicture}
+          src={user.avatar}
           sx={{
             width: 85,
             height: 85,
@@ -167,7 +186,6 @@ export default function Sidebar({ open, onClose, onNavigate }) {
         </ListItem>
       </List>
 
-      {/* Aurora Glow Animation */}
       <style>{`
         @keyframes aurora {
           0% { box-shadow: 0 0 25px #ff6ec4; }

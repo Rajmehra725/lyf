@@ -1,359 +1,384 @@
-// src/components/MyProfile.jsx
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   Box,
-  Container,
-  Typography,
   Avatar,
-  IconButton,
+  Typography,
+  Button,
+  Grid,
   Modal,
   TextField,
-  Button,
-  CircularProgress,
-  CardActions,
+  IconButton,
+  Container,
+  Menu,
+  MenuItem,
 } from "@mui/material";
-import { motion } from "framer-motion";
-import { FaHeart, FaRegHeart, FaEdit, FaTrash, FaPlus } from "react-icons/fa";
+import {
+  FaHeart,
+  FaRegHeart,
+  FaCommentDots,
+  FaTrash,
+  FaUserEdit,
+  FaEllipsisH,
+} from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
+import { Picker } from 'emoji-mart';
+
 import axios from "axios";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
-dayjs.extend(relativeTime);
+import { AuthContext } from "../context/AuthContext";
 
 const API = "https://raaznotes-backend.onrender.com/api";
 
-export default function MyProfile() {
+export default function Profile({ userId }) {
+  const { user: currentUser, token } = useContext(AuthContext);
+  const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [userData, setUserData] = useState(null);
-  const [openModal, setOpenModal] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [connections, setConnections] = useState({ followers: [], following: [] });
   const [selectedPost, setSelectedPost] = useState(null);
-  const [content, setContent] = useState("");
-  const [file, setFile] = useState(null);
+  const [comment, setComment] = useState("");
+  const [showConnections, setShowConnections] = useState(false);
+  const [likeAnimation, setLikeAnimation] = useState(null);
 
-  // ✅ Fetch user data and posts
+  // Menu state for three dots
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [menuPostId, setMenuPostId] = useState(null);
+
+  // Emoji picker state
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const isOwnProfile = !userId || currentUser._id === userId;
+  const profileId = userId || currentUser._id;
+
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          window.location.href = "/";
-          return;
-        }
+        const profileRes = await axios.get(
+          `${API}/users/${profileId === currentUser._id ? "me" : profileId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setUser(profileRes.data.user || profileRes.data);
 
-        // Get logged-in user
-        const userRes = await axios.get(`${API}/profile/me`, {
+        const postsRes = await axios.get(`${API}/posts/user/${profileId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const user = userRes.data;
-        setUserData(user);
+        const safePosts = (postsRes.data.posts || postsRes.data).map(p => ({
+          ...p,
+          likes: p.likes || [],
+          comments: p.comments || [],
+        }));
+        setPosts(safePosts);
 
-        // Get user's posts
-        const postsRes = await axios.get(`${API}/posts/user/${user._id}`, {
+        const connRes = await axios.get(`${API}/follow/${profileId}/connections`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setPosts(postsRes.data || []);
+        setConnections(connRes.data);
       } catch (err) {
-        console.error("Error fetching profile data:", err);
+        console.error("Failed to load profile:", err);
       }
     };
-    fetchData();
-  }, []);
+    fetchProfile();
+  }, [profileId, token, currentUser._id]);
 
-  // ❤️ Like toggle
-  const toggleLike = async (postId) => {
+  // Follow / Unfollow
+  const handleFollow = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.put(
-        `${API}/posts/${postId}/like`,
-        {},
+      await axios.post(`${API}/follow/${profileId}/follow`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      setConnections(prev => ({ ...prev, followers: [...prev.followers, currentUser] }));
+    } catch (err) { console.error(err); }
+  };
+
+  const handleUnfollow = async () => {
+    try {
+      await axios.post(`${API}/follow/${profileId}/unfollow`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      setConnections(prev => ({ ...prev, followers: prev.followers.filter(f => f._id !== currentUser._id) }));
+    } catch (err) { console.error(err); }
+  };
+
+  // Like posts
+  const handleLike = async postId => {
+    try {
+      const res = await axios.put(`${API}/posts/${postId}/like`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      setPosts(prev => prev.map(p => (p._id === postId ? { ...p, likes: res.data.likes || [] } : p)));
+      if (selectedPost && selectedPost._id === postId)
+        setSelectedPost({ ...selectedPost, likes: res.data.likes || [] });
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDoubleTapLike = postId => {
+    handleLike(postId);
+    setLikeAnimation(postId);
+    setTimeout(() => setLikeAnimation(null), 800);
+  };
+
+  // Comment
+  const handleComment = async postId => {
+    if (!comment.trim()) return;
+    try {
+      const res = await axios.post(
+        `${API}/posts/${postId}/comments`,
+        { text: comment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const updatedPost = res.data;
-      setPosts((prev) => prev.map((p) => (p._id === postId ? updatedPost : p)));
-    } catch (err) {
-      console.error("Error liking post:", err);
-    }
+      setPosts(prev => prev.map(p => (p._id === postId ? { ...p, comments: res.data.comments || [] } : p)));
+      if (selectedPost && selectedPost._id === postId)
+        setSelectedPost({ ...selectedPost, comments: res.data.comments || [] });
+      setComment("");
+      setShowEmojiPicker(false);
+    } catch (err) { console.error(err); }
   };
 
-  // 🗑️ Delete post
-  const handleDelete = async (id) => {
+  // Delete post
+  const handleDeletePost = async postId => {
     if (!window.confirm("Delete this post?")) return;
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(`${API}/posts/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPosts((prev) => prev.filter((p) => p._id !== id));
-    } catch (err) {
-      console.error("Error deleting post:", err);
-    }
+      await axios.delete(`${API}/posts/${postId}`, { headers: { Authorization: `Bearer ${token}` } });
+      setPosts(posts.filter(p => p._id !== postId));
+      setSelectedPost(null);
+      setAnchorEl(null);
+    } catch (err) { console.error(err); }
   };
 
-  // ✏️ Edit
-  const handleEdit = (post) => {
-    setIsEditing(true);
-    setSelectedPost(post);
-    setContent(post.content);
-    setFile(null);
-    setOpenModal(true);
-  };
-
-  // ➕ Create
-  const handleCreate = () => {
-    setIsEditing(false);
-    setContent("");
-    setFile(null);
-    setOpenModal(true);
-  };
-
-  // 💾 Save (Create or Update)
-  const handleSave = async () => {
+  // Delete comment
+  const handleDeleteComment = async (postId, commentId) => {
+    if (!window.confirm("Delete this comment?")) return;
     try {
-      const token = localStorage.getItem("token");
-      const formData = new FormData();
-      formData.append("content", content);
-      if (file) formData.append("file", file);
-
-      let res;
-      if (isEditing && selectedPost) {
-        res = await axios.put(`${API}/posts/${selectedPost._id}`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setPosts((prev) =>
-          prev.map((p) => (p._id === selectedPost._id ? res.data : p))
-        );
-      } else {
-        res = await axios.post(`${API}/posts`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setPosts((prev) => [res.data, ...prev]);
-      }
-
-      setOpenModal(false);
-      setIsEditing(false);
-      setContent("");
-      setFile(null);
-    } catch (err) {
-      console.error("Error saving post:", err);
-    }
+      await axios.delete(`${API}/posts/${postId}/comments/${commentId}`, { headers: { Authorization: `Bearer ${token}` } });
+      setPosts(prev =>
+        prev.map(p => p._id === postId ? { ...p, comments: (p.comments || []).filter(c => c._id !== commentId) } : p)
+      );
+      if (selectedPost && selectedPost._id === postId)
+        setSelectedPost({ ...selectedPost, comments: (selectedPost.comments || []).filter(c => c._id !== commentId) });
+    } catch (err) { console.error(err); }
   };
+
+  if (!user) return <Typography sx={{ mt: 4 }}>Loading profile...</Typography>;
 
   return (
-    <Container sx={{ mt: 10, color: "white", pb: 6 }}>
-      {/* 🔹 Profile Header */}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          flexWrap: "wrap",
-          justifyContent: "center",
-          mb: 5,
-          textAlign: "center",
-        }}
-      >
+    <Container sx={{ mt: 4 }}>
+      {/* Cover & Avatar */}
+      <Box sx={{
+        height: 200,
+        borderRadius: "16px",
+        backgroundImage: `url(${user.coverPhoto || "https://via.placeholder.com/900x300"})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        position: "relative",
+      }}>
         <Avatar
-          src={userData?.profilePicture}
-          sx={{
-            width: 120,
-            height: 120,
-            border: "3px solid #ff9966",
-            boxShadow: "0 0 15px #ff9966",
-          }}
+          src={user.avatar || "https://via.placeholder.com/150"}
+          sx={{ width: 120, height: 120, position: "absolute", bottom: -60, left: 30, border: "4px solid white", cursor: "pointer" }}
         />
+      </Box>
 
-        <Box>
-          <Typography variant="h5" fontWeight="bold">
-            {userData?.name || "User"}
+      {/* Profile Info */}
+      <Box sx={{ mt: 8, px: 2 }}>
+        <Typography variant="h5" fontWeight={600}>{user.name}</Typography>
+        <Typography variant="body2" sx={{ color: "gray" }}>{user.email}</Typography>
+        <Typography variant="body1" sx={{ mt: 1 }}>{user.bio || "No bio yet"}</Typography>
+
+        <Box sx={{ display: "flex", gap: 3, mt: 2 }}>
+          <Typography sx={{ cursor: "pointer" }} onClick={() => setShowConnections(true)}>
+            <strong>{connections.followers?.length || 0}</strong> Followers
           </Typography>
-          <Typography variant="body2" color="gray" mb={2}>
-            @{userData?.email}
+          <Typography sx={{ cursor: "pointer" }} onClick={() => setShowConnections(true)}>
+            <strong>{connections.following?.length || 0}</strong> Following
           </Typography>
+          <Typography><strong>{posts.length}</strong> Posts</Typography>
+        </Box>
 
-          {/* Counts */}
-          <Box sx={{ display: "flex", justifyContent: "center", gap: 4, mb: 2 }}>
-            <Box>
-              <Typography fontWeight="bold">{posts.length}</Typography>
-              <Typography variant="caption" color="gray">
-                Posts
-              </Typography>
-            </Box>
-            <Box>
-              <Typography fontWeight="bold">1.2k</Typography>
-              <Typography variant="caption" color="gray">
-                Followers
-              </Typography>
-            </Box>
-            <Box>
-              <Typography fontWeight="bold">320</Typography>
-              <Typography variant="caption" color="gray">
-                Following
-              </Typography>
-            </Box>
-          </Box>
-
-          <Button
-            variant="outlined"
-            sx={{
-              color: "#ff9966",
-              borderColor: "#ff9966",
-              borderRadius: "25px",
-              px: 3,
-              "&:hover": { backgroundColor: "#ff996620" },
-            }}
-          >
+        {isOwnProfile ? (
+          <Button variant="contained" sx={{ mt: 2, borderRadius: "30px" }} startIcon={<FaUserEdit />}>
             Edit Profile
           </Button>
-        </Box>
-      </Box>
-
-      {/* 🧠 Create Button */}
-      <Box sx={{ textAlign: "center", mb: 4 }}>
-        <Button
-          startIcon={<FaPlus />}
-          variant="contained"
-          sx={{
-            background: "linear-gradient(45deg, #ff9966, #ff5e62)",
-            borderRadius: "30px",
-            px: 4,
-          }}
-          onClick={handleCreate}
-        >
-          Create New Post
-        </Button>
-      </Box>
-
-      {/* 🔹 Posts Section */}
-      {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 5 }}>
-          <CircularProgress color="inherit" />
-        </Box>
-      ) : posts.length === 0 ? (
-        <Typography textAlign="center" mt={5}>
-          You haven’t posted anything yet 💭
-        </Typography>
-      ) : (
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: 3,
-          }}
-        >
-          {posts.map((p) => (
-            <motion.div
-              key={p._id}
-              whileHover={{ scale: 1.03 }}
-              transition={{ duration: 0.3 }}
-              style={{
-                background: "rgba(255,255,255,0.08)",
-                borderRadius: "16px",
-                overflow: "hidden",
-                backdropFilter: "blur(6px)",
-                boxShadow: "0 0 10px rgba(255,255,255,0.1)",
-              }}
-            >
-              {p.mediaUrl &&
-                (p.mediaUrl.match(/\.(mp4|mov|mkv|webm)$/i) ? (
-                  <video
-                    src={p.mediaUrl}
-                    controls
-                    style={{ width: "100%", height: 300, objectFit: "cover" }}
-                  />
-                ) : (
-                  <img
-                    src={p.mediaUrl}
-                    alt="post"
-                    style={{ width: "100%", height: 300, objectFit: "cover" }}
-                  />
-                ))}
-
-              <Box sx={{ p: 2 }}>
-                <Typography variant="body1" sx={{ mb: 1 }}>
-                  {p.content}
-                </Typography>
-                <Typography variant="caption" color="gray">
-                  {dayjs(p.createdAt).fromNow()}
-                </Typography>
-              </Box>
-
-              <CardActions sx={{ justifyContent: "space-between", p: 2 }}>
-                <IconButton onClick={() => toggleLike(p._id)}>
-                  {p.likes?.includes(userData?._id) ? (
-                    <FaHeart color="#ff5e62" />
-                  ) : (
-                    <FaRegHeart color="white" />
-                  )}
-                </IconButton>
-                <Typography variant="caption" color="white">
-                  {p.likes?.length || 0} likes
-                </Typography>
-
-                <Box>
-                  <IconButton onClick={() => handleEdit(p)}>
-                    <FaEdit color="#00e5ff" />
-                  </IconButton>
-                  <IconButton onClick={() => handleDelete(p._id)}>
-                    <FaTrash color="#ff4d4d" />
-                  </IconButton>
-                </Box>
-              </CardActions>
-            </motion.div>
-          ))}
-        </Box>
-      )}
-
-      {/* 🧾 Modal for Create/Edit */}
-      <Modal open={openModal} onClose={() => setOpenModal(false)}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: 400,
-            bgcolor: "#222",
-            p: 4,
-            borderRadius: 3,
-            color: "white",
-            boxShadow: 24,
-          }}
-        >
-          <Typography variant="h6" mb={2}>
-            {isEditing ? "Edit Post ✏️" : "Create New Post 🚀"}
-          </Typography>
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            placeholder="Write something..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            sx={{
-              mb: 2,
-              "& .MuiOutlinedInput-root": {
-                color: "white",
-                "& fieldset": { borderColor: "#ff9966" },
-              },
-            }}
-          />
-          <input
-            type="file"
-            onChange={(e) => setFile(e.target.files[0])}
-            style={{ marginBottom: "15px" }}
-          />
+        ) : (
           <Button
             variant="contained"
-            fullWidth
-            sx={{
-              background: "linear-gradient(45deg, #ff9966, #ff5e62)",
-              "&:hover": { opacity: 0.9 },
-            }}
-            onClick={handleSave}
+            sx={{ mt: 2, borderRadius: "30px" }}
+            onClick={connections.followers?.some(f => f._id === currentUser._id) ? handleUnfollow : handleFollow}
           >
-            {isEditing ? "Update Post" : "Create Post"}
+            {connections.followers?.some(f => f._id === currentUser._id) ? "Unfollow" : "Follow"}
           </Button>
+        )}
+      </Box>
+
+      {/* Posts Grid */}
+      <Grid container spacing={2} sx={{ mt: 3 }}>
+        {posts.map(post => (
+          <Grid item xs={12} sm={6} md={4} key={post._id}>
+            <motion.div whileHover={{ scale: 1.03 }}>
+              <Box
+                sx={{
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  boxShadow: 2,
+                  position: "relative",
+                  transition: "0.3s",
+                  "&:hover": { boxShadow: 6 },
+                  height: 350, // Fixed height like Instagram
+                }}
+                onClick={() => setSelectedPost(post)}
+                onDoubleClick={() => handleDoubleTapLike(post._id)}
+              >
+                {/* Three-dot Menu */}
+                {isOwnProfile && (
+                  <>
+                    <IconButton
+                      size="small"
+                      sx={{ position: "absolute", top: 5, right: 5, zIndex: 10 }}
+                      onClick={e => { e.stopPropagation(); setAnchorEl(e.currentTarget); setMenuPostId(post._id); }}
+                    >
+                      <FaEllipsisH />
+                    </IconButton>
+                    <Menu
+                      anchorEl={anchorEl}
+                      open={Boolean(anchorEl) && menuPostId === post._id}
+                      onClose={() => setAnchorEl(null)}
+                    >
+                      <MenuItem onClick={() => handleDeletePost(post._id)}>Delete</MenuItem>
+                    </Menu>
+                  </>
+                )}
+
+                {/* Heart Animation */}
+                <AnimatePresence>
+                  {likeAnimation === post._id && (
+                    <motion.div
+                      initial={{ scale: 0, opacity: 1 }}
+                      animate={{ scale: 2, opacity: 0 }}
+                      exit={{ opacity: 0 }}
+                      style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        pointerEvents: "none",
+                        color: "red",
+                        fontSize: 60,
+                        zIndex: 10,
+                      }}
+                    >
+                      ❤️
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Media */}
+                {post.mediaUrl && /\.(mp4|mov|webm|mkv)$/i.test(post.mediaUrl) ? (
+                  <video src={post.mediaUrl} controls style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <img src={post.mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                )}
+
+                {/* Post Info */}
+                <Box sx={{ p: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <IconButton onClick={(e) => { e.stopPropagation(); handleLike(post._id); }} size="small">
+                      {post.likes?.includes(currentUser._id) ? <FaHeart color="red" /> : <FaRegHeart />}
+                    </IconButton>
+                    <Typography variant="body2">{post.likes?.length || 0}</Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <FaCommentDots />
+                    <Typography variant="body2">{post.comments?.length || 0}</Typography>
+                  </Box>
+                </Box>
+              </Box>
+            </motion.div>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Post Modal */}
+      <Modal open={!!selectedPost} onClose={() => setSelectedPost(null)}>
+        <Box sx={{ background: "#fff", borderRadius: 3, width: "90%", maxWidth: 800, mx: "auto", my: 8, p: 3, maxHeight: "80vh", overflowY: "auto" }}>
+          {selectedPost && (
+            <>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <Avatar src={user.avatar} sx={{ mr: 2 }} />
+                <Typography>{user.name}</Typography>
+              </Box>
+
+              <Box sx={{ borderRadius: 2, overflow: "hidden", mb: 2 }}>
+                {/\.(mp4|mov|webm|mkv)$/i.test(selectedPost.mediaUrl) ? (
+                  <video src={selectedPost.mediaUrl} controls style={{ width: "100%", borderRadius: 8 }} />
+                ) : (
+                  <img src={selectedPost.mediaUrl} alt="" style={{ width: "100%", borderRadius: 8 }} />
+                )}
+              </Box>
+
+              <Typography sx={{ mb: 2 }}>{selectedPost.content}</Typography>
+
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <IconButton onClick={() => handleLike(selectedPost._id)}>
+                  {selectedPost.likes?.includes(currentUser._id) ? <FaHeart color="red" /> : <FaRegHeart />}
+                </IconButton>
+                <Typography sx={{ mr: 2 }}>{selectedPost.likes?.length || 0}</Typography>
+                <FaCommentDots />
+                <Typography sx={{ ml: 0.5 }}>{selectedPost.comments?.length || 0}</Typography>
+              </Box>
+
+              <Box sx={{ maxHeight: 300, overflowY: "auto", mb: 2 }}>
+                {(selectedPost.comments || []).map(c => (
+                  <Box key={c._id} sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                    <Typography><strong>{c.user.name}</strong>: {c.text}</Typography>
+                    {(c.user._id === currentUser._id || isOwnProfile) && (
+                      <IconButton onClick={() => handleDeleteComment(selectedPost._id, c._id)}>
+                        <FaTrash color="red" size={15} />
+                      </IconButton>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+
+              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                <TextField
+                  fullWidth
+                  placeholder="Add a comment..."
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                  onKeyPress={e => { if (e.key === "Enter") handleComment(selectedPost._id); }}
+                />
+                <Button onClick={() => setShowEmojiPicker(!showEmojiPicker)}>😊</Button>
+                <Button onClick={() => handleComment(selectedPost._id)}>Post</Button>
+              </Box>
+
+              {showEmojiPicker && (
+                <Box sx={{ mt: 1 }}>
+                  <Picker
+                    set="apple"
+                    onSelect={emoji => setComment(prev => prev + emoji.native)}
+                  />
+                </Box>
+              )}
+            </>
+          )}
+        </Box>
+      </Modal>
+
+      {/* Connections Modal */}
+      <Modal open={showConnections} onClose={() => setShowConnections(false)}>
+        <Box sx={{ background: "#fff", borderRadius: 3, width: 400, mx: "auto", my: 8, p: 3 }}>
+          <Typography variant="h6">Connections</Typography>
+          <Typography variant="subtitle1" sx={{ mt: 2 }}>Followers:</Typography>
+          <Box sx={{ maxHeight: 150, overflowY: "auto" }}>
+            {(connections.followers || []).map(f => (
+              <Box key={f._id} sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                <Avatar src={f.avatar} sx={{ mr: 1, width: 30, height: 30 }} />
+                <Typography>{f.name}</Typography>
+              </Box>
+            ))}
+          </Box>
+          <Typography variant="subtitle1" sx={{ mt: 2 }}>Following:</Typography>
+          <Box sx={{ maxHeight: 150, overflowY: "auto" }}>
+            {(connections.following || []).map(f => (
+              <Box key={f._id} sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                <Avatar src={f.avatar} sx={{ mr: 1, width: 30, height: 30 }} />
+                <Typography>{f.name}</Typography>
+              </Box>
+            ))}
+          </Box>
         </Box>
       </Modal>
     </Container>
