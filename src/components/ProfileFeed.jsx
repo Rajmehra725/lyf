@@ -22,11 +22,14 @@ import {
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { Picker } from 'emoji-mart';
+import { io } from "socket.io-client";
+
 
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 
 const API = "https://raaznotes-backend.onrender.com/api";
+const socket = io(process.env.REACT_APP_API_URL || "http://localhost:5000");
 
 export default function Profile({ userId }) {
   const { user: currentUser, token } = useContext(AuthContext);
@@ -139,16 +142,33 @@ export default function Profile({ userId }) {
 
   // Delete comment
   const handleDeleteComment = async (postId, commentId) => {
-    if (!window.confirm("Delete this comment?")) return;
-    try {
-      await axios.delete(`${API}/posts/${postId}/comments/${commentId}`, { headers: { Authorization: `Bearer ${token}` } });
-      setPosts(prev =>
-        prev.map(p => p._id === postId ? { ...p, comments: (p.comments || []).filter(c => c._id !== commentId) } : p)
-      );
-      if (selectedPost && selectedPost._id === postId)
-        setSelectedPost({ ...selectedPost, comments: (selectedPost.comments || []).filter(c => c._id !== commentId) });
-    } catch (err) { console.error(err); }
-  };
+  if (!window.confirm("Delete this comment?")) return;
+  try {
+    await axios.delete(`${API}/posts/${postId}/comments/${commentId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // Instantly update UI
+    setPosts(prev =>
+      prev.map(p =>
+        p._id === postId
+          ? { ...p, comments: (p.comments || []).filter(c => c._id !== commentId) }
+          : p
+      )
+    );
+    if (selectedPost && selectedPost._id === postId) {
+      setSelectedPost(prev => ({
+        ...prev,
+        comments: (prev.comments || []).filter(c => c._id !== commentId),
+      }));
+    }
+
+    // 🔥 Emit to others via socket
+    socket.emit("comment-deleted", { postId, commentId });
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   if (!user) return <Typography sx={{ mt: 4 }}>Loading profile...</Typography>;
 

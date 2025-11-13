@@ -22,12 +22,14 @@ import { FiTrash2 } from "react-icons/fi";
 import axios from "axios";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { useNavigate } from "react-router-dom"; // ✅ Added navigation
 
 dayjs.extend(relativeTime);
 
 const API = "https://raaznotes-backend.onrender.com/api";
 
 export default function HomeFeed() {
+  const navigate = useNavigate(); // ✅ navigation
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState(null);
@@ -35,26 +37,44 @@ export default function HomeFeed() {
   const [selectedPost, setSelectedPost] = useState(null);
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState([]);
+  const [following, setFollowing] = useState([]); // ✅ store user following list
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     setUserData(user);
     fetchPosts();
+    fetchFollowing(user?._id);
   }, []);
 
   // 🧠 Fetch Posts
-  const fetchPosts = async () => {
+ const fetchPosts = async () => {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem("token");
+    const res = await axios.get(`${API}/posts`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log("POSTS RESPONSE:", res.data); // 👈 ADD THIS LINE
+    setPosts(res.data);
+  } catch (err) {
+    console.error("Error fetching posts:", err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  // ✅ Fetch who the user is following
+  const fetchFollowing = async (id) => {
+    if (!id) return;
     try {
-      setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API}/posts`, {
+      const res = await axios.get(`${API}/follow/${id}/connections`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setPosts(res.data);
+      setFollowing(res.data.following.map((f) => f._id));
     } catch (err) {
-      console.error("Error fetching posts:", err);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching following:", err);
     }
   };
 
@@ -161,6 +181,31 @@ export default function HomeFeed() {
     }
   };
 
+  // ✅ Follow / Unfollow User
+  const handleFollow = async (targetId) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(`${API}/follow/${targetId}/follow`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setFollowing((prev) => [...prev, targetId]);
+    } catch (err) {
+      console.error("Error following:", err);
+    }
+  };
+
+  const handleUnfollow = async (targetId) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(`${API}/follow/${targetId}/unfollow`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setFollowing((prev) => prev.filter((id) => id !== targetId));
+    } catch (err) {
+      console.error("Error unfollowing:", err);
+    }
+  };
+
   return (
     <Container sx={{ mt: 10, pb: 6 }}>
       {loading ? (
@@ -209,16 +254,78 @@ export default function HomeFeed() {
                   }}
                 >
                   <Avatar
-                    src={p.author?.profilePicture}
-                    sx={{ width: 36, height: 36 }}
-                  />
-                  <Typography variant="body1" fontWeight="bold" color="#fff">
-                    {p.author?.name || "Unknown"}
-                  </Typography>
+  src={
+    p.author?.avatar
+      ? p.author.avatar
+      : "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+  }
+  sx={{ width: 36, height: 36, cursor: "pointer" }}
+  onClick={() => navigate(`/profile/${p.author?._id}`)}
+/>
+
+                  {/* 🧡 Name + (Following) */}
                   <Typography
-                    variant="caption"
-                    sx={{ color: "gray", ml: "auto" }}
+                    variant="body1"
+                    fontWeight="bold"
+                    color="#fff"
+                    sx={{
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                    }}
+                    onClick={() => navigate(`/profile/${p.author?._id}`)}
                   >
+                    {p.author?.name || "Unknown"}
+                    {following.includes(p.author?._id) && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "#ff5e62",
+                          ml: 0.5,
+                          fontWeight: 500,
+                        }}
+                      >
+                        (Following)
+                      </Typography>
+                    )}
+                  </Typography>
+
+                  {/* 🧡 Follow/Unfollow Button */}
+                  {p.author?._id !== userData?._id && (
+                    following.includes(p.author?._id) ? (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleUnfollow(p.author._id)}
+                        sx={{
+                          ml: "auto",
+                          borderRadius: "20px",
+                          color: "#ff5e62",
+                          borderColor: "#ff5e62",
+                          textTransform: "none",
+                        }}
+                      >
+                        Following
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => handleFollow(p.author._id)}
+                        sx={{
+                          ml: "auto",
+                          borderRadius: "20px",
+                          background: "linear-gradient(45deg, #ff9966, #ff5e62)",
+                          textTransform: "none",
+                        }}
+                      >
+                        Follow
+                      </Button>
+                    )
+                  )}
+
+                  <Typography variant="caption" sx={{ color: "gray", ml: 1 }}>
                     {dayjs(p.createdAt).fromNow()}
                   </Typography>
                 </Box>
@@ -349,7 +456,7 @@ export default function HomeFeed() {
         </Box>
       )}
 
-      {/* 💬 Comments Modal */}
+      {/* 💬 Comments Modal (unchanged) */}
       <Modal open={openCommentModal} onClose={() => setOpenCommentModal(false)}>
         <Box
           sx={{
@@ -434,4 +541,4 @@ export default function HomeFeed() {
       </Modal>
     </Container>
   );
-}
+}  
