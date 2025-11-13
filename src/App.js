@@ -19,6 +19,8 @@ import Upload from "./pages/Upload";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ProtectedRoute from "./components/ProtectedRoute";
+import NewsCard from "./components/news/NewsCard";
+import NewsFeed from "./components/news/NewsFeed";
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -33,6 +35,7 @@ function App() {
           <Route path="/upload" element={<Upload />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/news" element={<NewsFeed />} />
            <Route
           path="/admin-dashboard"
           element={
@@ -41,7 +44,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-           <Route
+            <Route
           path="/dashboard"
           element={
             <ProtectedRoute>

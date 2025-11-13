@@ -23,6 +23,7 @@ const navItems = [
   { text: "Upload", path: "/upload" },
   { text: "Safety", path: "/safety" },
   { text: "About", path: "/about" },
+  { text: "News", path: "/news" },
 ];
 
 export default function Navbar() {

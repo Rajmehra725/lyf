@@ -10,7 +10,8 @@ import CreatePostDialog from "../../components/CreatePostDialog";
 import Lyf from "../../components/Lyf";
 import Settings from "../../components/Settings";
 import Notifications from "../../components/Notifications";
-
+import AddNewsForm from "../../components/news/AddNewsForm";
+import DashboardNews from "../../components/news/DashboardNews";
 export default function Dashboard() {
   const [open, setOpen] = useState(false);
   const [sidebar, setSidebar] = useState(false);
@@ -34,6 +35,8 @@ export default function Dashboard() {
         return <Notifications />;
       case "lyf":
         return <Lyf />;
+         case "news":
+        return <DashboardNews />;
       default:
         return <HomeFeed key={refreshFeed} />;
     }

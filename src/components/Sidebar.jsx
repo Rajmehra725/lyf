@@ -17,6 +17,7 @@ import {
   FiBell,
   FiLogOut,
   FiHeart,
+  FiGlobe, // 🌍 for News
 } from "react-icons/fi";
 import axios from "axios";
 
@@ -69,7 +70,7 @@ export default function Sidebar({ open, onClose, onNavigate }) {
         },
       }}
     >
-      {/* User Section */}
+      {/* 👤 User Section */}
       <Box
         sx={{
           textAlign: "center",
@@ -112,12 +113,13 @@ export default function Sidebar({ open, onClose, onNavigate }) {
         </Typography>
       </Box>
 
-      {/* Menu List */}
+      {/* 📜 Menu List */}
       <List sx={{ mt: 2 }}>
         {[
           { icon: <FiHome />, label: "Home Feed", page: "home" },
           { icon: <FiUser />, label: "Profile", page: "profile" },
           { icon: <FiHeart />, label: "Lyf", page: "lyf" },
+          { icon: <FiGlobe />, label: "News", page: "news" }, // 📰 NEW section added here
           { icon: <FiBell />, label: "Notifications", page: "notifications" },
           { icon: <FiSettings />, label: "Settings", page: "settings" },
         ].map((item, i) => (
@@ -156,6 +158,7 @@ export default function Sidebar({ open, onClose, onNavigate }) {
 
         <Divider sx={{ background: "rgba(255,255,255,0.3)", my: 2 }} />
 
+        {/* 🚪 Logout */}
         <ListItem disablePadding>
           <ListItemButton
             onClick={handleLogout}
@@ -186,6 +189,7 @@ export default function Sidebar({ open, onClose, onNavigate }) {
         </ListItem>
       </List>
 
+      {/* ✨ Aurora Animation */}
       <style>{`
         @keyframes aurora {
           0% { box-shadow: 0 0 25px #ff6ec4; }
