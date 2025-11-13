@@ -7,6 +7,7 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  useMediaQuery,
 } from "@mui/material";
 import {
   FaPaperPlane,
@@ -22,7 +23,7 @@ import {
 import EmojiPicker from "emoji-picker-react";
 import axios from "axios";
 import io from "socket.io-client";
-import { notifyNewMessage } from "./NotificationToast";
+import { motion } from "framer-motion";
 
 const BACKEND = "https://raaznotes-backend.onrender.com";
 const socket = io(BACKEND, { transports: ["websocket"] });
@@ -37,26 +38,30 @@ const ChatWindow = ({ selectedUser, currentUser }) => {
   const [online, setOnline] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [activeMessageId, setActiveMessageId] = useState(null);
-
   const bottomRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const isMobile = useMediaQuery("(max-width:768px)");
   const token = localStorage.getItem("token");
 
-  // ✅ Fetch messages (safe)
+  // 📩 Fetch Messages
   useEffect(() => {
     if (!selectedUser?._id || !currentUser?._id) return;
+    setMessages([]);
+    setLoading(true);
+
     const fetchMessages = async () => {
-      setLoading(true);
       try {
         const res = await axios.get(`${BACKEND}/api/chat/${selectedUser._id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const msgs = res.data.map((m) => ({
-          ...m,
-          isMine: m.sender._id === currentUser._id,
-        }));
-        setMessages(msgs);
+        setMessages(
+          res.data.map((m) => ({
+            ...m,
+            isMine: m.sender._id === currentUser._id,
+          }))
+        );
       } catch (err) {
-        console.error("❌ Fetch messages error:", err);
+        console.error("Fetch messages error:", err);
       } finally {
         setLoading(false);
       }
@@ -64,86 +69,70 @@ const ChatWindow = ({ selectedUser, currentUser }) => {
     fetchMessages();
   }, [selectedUser?._id, currentUser?._id, token]);
 
-  // ✅ Socket setup (safe)
+  // ⚡ Socket Setup
   useEffect(() => {
     if (!currentUser?._id) return;
-
     socket.emit("join", currentUser._id);
 
-    const handleNewMessage = (msg) => {
-      if (
-        msg.sender === selectedUser?._id ||
-        msg.receiver === selectedUser?._id
-      ) {
+    socket.on("onlineUsers", (list) => {
+      if (selectedUser?._id) setOnline(list.includes(selectedUser._id));
+    });
+
+    socket.on("userTyping", (senderId) => {
+      if (senderId === selectedUser._id) setIsTyping(true);
+    });
+
+    socket.on("userStopTyping", (senderId) => {
+      if (senderId === selectedUser._id) setIsTyping(false);
+    });
+
+    socket.on("newMessage", (msg) => {
+      if (msg.sender === selectedUser._id || msg.receiver === selectedUser._id) {
         setMessages((prev) => [
           ...prev,
           { ...msg, isMine: msg.sender === currentUser._id },
         ]);
+        socket.emit("messageSeen", { messageId: msg._id, receiverId: msg.sender });
       }
-      if (msg.sender !== currentUser._id && selectedUser) {
-        notifyNewMessage(selectedUser.name, msg.text);
-      }
-    };
+    });
 
-    const handleSeen = ({ messageId }) => {
+    socket.on("messageSeenAck", (messageId) => {
       setMessages((prev) =>
-        prev.map((m) => (m._id === messageId ? { ...m, isSeen: true } : m))
+        prev.map((m) =>
+          m._id === messageId ? { ...m, isSeen: true } : m
+        )
       );
-    };
-
-    const handleTyping = (userId) => {
-      if (userId === selectedUser?._id) setIsTyping(true);
-    };
-    const handleStopTyping = (userId) => {
-      if (userId === selectedUser?._id) setIsTyping(false);
-    };
-
-    const handleOnlineUsers = (list) => {
-      if (selectedUser?._id) setOnline(list.includes(selectedUser._id));
-    };
-
-    socket.on("newMessage", handleNewMessage);
-    socket.on("messageSeen", handleSeen);
-    socket.on("typing", handleTyping);
-    socket.on("stopTyping", handleStopTyping);
-    socket.on("onlineUsers", handleOnlineUsers);
+    });
 
     return () => {
-      socket.off("newMessage", handleNewMessage);
-      socket.off("messageSeen", handleSeen);
-      socket.off("typing", handleTyping);
-      socket.off("stopTyping", handleStopTyping);
-      socket.off("onlineUsers", handleOnlineUsers);
+      socket.off("onlineUsers");
+      socket.off("userTyping");
+      socket.off("userStopTyping");
+      socket.off("newMessage");
+      socket.off("messageSeenAck");
     };
   }, [selectedUser?._id, currentUser?._id]);
 
-  // ✅ Auto scroll
+  // Scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // 🧠 Typing logic
   const handleTyping = (e) => {
     const val = e.target.value;
     setText(val);
-    if (!selectedUser?._id || !currentUser?._id) return;
-    socket.emit("typing", {
-      senderId: currentUser._id,
-      receiverId: selectedUser._id,
-    });
-    setTimeout(
-      () =>
-        socket.emit("stopTyping", {
-          senderId: currentUser._id,
-          receiverId: selectedUser._id,
-        }),
-      1500
-    );
+    socket.emit("typing", { senderId: currentUser._id, receiverId: selectedUser._id });
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit("stopTyping", {
+        senderId: currentUser._id,
+        receiverId: selectedUser._id,
+      });
+    }, 1500);
   };
 
-  const onEmojiClick = (emojiData) => {
-    setText((prev) => prev + emojiData.emoji);
-  };
-
+  // 📤 Send Message
   const handleSend = async () => {
     if (!text.trim() && !media) return;
     try {
@@ -162,25 +151,23 @@ const ChatWindow = ({ selectedUser, currentUser }) => {
       const newMsg = { ...res.data.data, isMine: true };
       setMessages((prev) => [...prev, newMsg]);
       socket.emit("sendMessage", newMsg);
-
       setText("");
       setMedia(null);
       setShowEmoji(false);
     } catch (err) {
-      console.error("❌ Send message error:", err);
+      console.error("Send error:", err);
     }
   };
 
+  // ❤️ React to Message
   const handleOpenReaction = (event, messageId) => {
     setAnchorEl(event.currentTarget);
     setActiveMessageId(messageId);
   };
-
   const handleCloseReaction = () => {
     setAnchorEl(null);
     setActiveMessageId(null);
   };
-
   const reactToMessage = async (emoji) => {
     if (!activeMessageId) return;
     try {
@@ -196,55 +183,78 @@ const ChatWindow = ({ selectedUser, currentUser }) => {
       );
       handleCloseReaction();
     } catch (err) {
-      console.error("❌ React error:", err);
+      console.error("React error:", err);
     }
   };
 
-  const handleDeleteMessage = async (messageId) => {
-    try {
-      await axios.delete(`${BACKEND}/api/chat/delete/${messageId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setMessages((prev) => prev.filter((m) => m._id !== messageId));
-      socket.emit("deleteMessage", messageId);
-    } catch (err) {
-      console.error("❌ Delete error:", err);
-    }
-  };
-
-  // ✅ Early return moved BELOW hooks
   if (!selectedUser || !currentUser) {
     return (
-      <Box sx={{ p: 3, textAlign: "center" }}>
-        <Typography variant="h6" color="text.secondary">
-          Select a user to start chatting 💬
-        </Typography>
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#777",
+        }}
+      >
+        <Typography>Select a user to start chatting 💬</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        background: "linear-gradient(135deg, #0f2027, #203a43, #2c5364)",
+        position: "relative",
+      }}
+    >
       {/* Header */}
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
           p: 2,
-          borderBottom: "1px solid #eee",
-          backgroundColor: "#fff",
+          backdropFilter: "blur(10px)",
+          background: "rgba(255,255,255,0.1)",
+          borderBottom: "1px solid rgba(255,255,255,0.2)",
         }}
       >
         <Avatar src={selectedUser.avatar} sx={{ mr: 2 }} />
         <Box>
-          <Typography variant="h6">{selectedUser.name}</Typography>
-          {online ? (
-            <Typography color="success.main">Online</Typography>
-          ) : isTyping ? (
-            <Typography color="primary">Typing...</Typography>
-          ) : (
-            <Typography color="text.secondary">Last seen recently</Typography>
-          )}
+          <Typography sx={{ color: "#fff", fontWeight: 600 }}>
+            {selectedUser.name}
+          </Typography>
+         <Typography sx={{ fontSize: 12, color: "#aaf" }}>
+  {online
+    ? "Online"
+    : isTyping
+    ? "Typing..."
+    : selectedUser.lastSeen
+    ? (() => {
+        const lastSeenDate = new Date(selectedUser.lastSeen);
+        const now = new Date();
+        const diff = Math.floor((now - lastSeenDate) / 60000); // minutes
+
+        if (diff < 1) return "last seen just now";
+        if (diff < 60) return `last seen ${diff} minute${diff > 1 ? "s" : ""} ago`;
+        if (diff < 1440)
+          return `last seen today at ${lastSeenDate.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`;
+        return `last seen on ${lastSeenDate.toLocaleDateString()} at ${lastSeenDate.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`;
+      })()
+    : "last seen a while ago"}
+</Typography>
+
         </Box>
       </Box>
 
@@ -253,107 +263,101 @@ const ChatWindow = ({ selectedUser, currentUser }) => {
         sx={{
           flex: 1,
           overflowY: "auto",
-          p: 2,
-          backgroundColor: "#f9f9f9",
+          p: isMobile ? 1.5 : 3,
+          display: "flex",
+          flexDirection: "column",
+          gap: 1.5,
         }}
       >
         {loading ? (
-          <CircularProgress sx={{ display: "block", mx: "auto", my: 4 }} />
+          <CircularProgress sx={{ color: "#25D366", mx: "auto", my: 4 }} />
         ) : (
           messages.map((msg) => (
-            <Box
+            <motion.div
               key={msg._id}
-              sx={{
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ scale: 1.02 }}
+              style={{
                 display: "flex",
                 justifyContent: msg.isMine ? "flex-end" : "flex-start",
-                mb: 1,
               }}
             >
               <Box
                 sx={{
-                  bgcolor: msg.isMine ? "#1976d2" : "#e0e0e0",
-                  color: msg.isMine ? "#fff" : "#000",
                   px: 2,
                   py: 1,
-                  borderRadius: 2,
-                  maxWidth: "70%",
-                  position: "relative",
+                  borderRadius: 3,
+                  maxWidth: "75%",
+                  bgcolor: msg.isMine
+                    ? "linear-gradient(135deg, #25D366, #128C7E)"
+                    : "rgba(255,255,255,0.15)",
+                  color: msg.isMine ? "#fff" : "#eee",
                   cursor: "pointer",
+                  position: "relative",
                 }}
                 onClick={(e) => handleOpenReaction(e, msg._id)}
               >
-                {msg.media &&
-                  msg.media.map((url, i) => (
-                    <img
-                      key={i}
-                      src={url}
-                      alt="upload"
-                      style={{
-                        width: "100%",
-                        borderRadius: "10px",
-                        marginBottom: "5px",
-                      }}
-                    />
-                  ))}
-
+                {msg.media && msg.media.length > 0 && (
+                  <img
+                    src={msg.media[0]}
+                    alt="upload"
+                    style={{
+                      width: "100%",
+                      borderRadius: "10px",
+                      marginBottom: "6px",
+                    }}
+                  />
+                )}
                 {msg.text}
 
+                {/* Reaction */}
                 {msg.reaction && (
-                  <span
-                    style={{
+                  <Typography
+                    sx={{
                       position: "absolute",
-                      bottom: -15,
-                      right: 0,
-                      fontSize: "1.2rem",
+                      bottom: -18,
+                      right: 10,
+                      fontSize: "1.1rem",
                     }}
                   >
                     {msg.reaction}
-                  </span>
-                )}
-
-                {msg.isMine && (
-                  <Typography
-                    onClick={() => handleDeleteMessage(msg._id)}
-                    sx={{
-                      fontSize: "0.75rem",
-                      textAlign: "right",
-                      color: "red",
-                      cursor: "pointer",
-                      mt: 0.3,
-                    }}
-                  >
-                    Unsend
                   </Typography>
                 )}
 
-                <Box
+                {/* Time + Seen */}
+                <Typography
                   sx={{
-                    position: "absolute",
-                    bottom: -15,
-                    right: 5,
                     fontSize: "0.7rem",
-                    color: msg.isMine ? "#fff" : "#555",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "3px",
+                    textAlign: "right",
+                    opacity: 0.8,
+                    mt: 0.3,
                   }}
                 >
-                  {msg.isSeen ? <FaCheckDouble size={12} /> : <FaCheck size={12} />}
-                  <span>{new Date(msg.createdAt).toLocaleTimeString()}</span>
-                </Box>
+                  {msg.isMine &&
+                    (msg.isSeen ? (
+                      <FaCheckDouble size={10} color="#0ff" />
+                    ) : (
+                      <FaCheck size={10} />
+                    ))}{" "}
+                  {new Date(msg.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Typography>
               </Box>
-            </Box>
+            </motion.div>
           ))
         )}
         <div ref={bottomRef} />
       </Box>
 
-      {/* Reaction Menu */}
+      {/* Emoji Reaction Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleCloseReaction}>
-        <MenuItem onClick={() => reactToMessage("❤️")}><FaHeart color="red" /> ❤️</MenuItem>
-        <MenuItem onClick={() => reactToMessage("😂")}><FaLaugh color="orange" /> 😂</MenuItem>
-        <MenuItem onClick={() => reactToMessage("🔥")}><FaFire color="red" /> 🔥</MenuItem>
-        <MenuItem onClick={() => reactToMessage("👍")}><FaThumbsUp color="blue" /> 👍</MenuItem>
+        <MenuItem onClick={() => reactToMessage("❤️")}>❤️</MenuItem>
+        <MenuItem onClick={() => reactToMessage("😂")}>😂</MenuItem>
+        <MenuItem onClick={() => reactToMessage("🔥")}>🔥</MenuItem>
+        <MenuItem onClick={() => reactToMessage("👍")}>👍</MenuItem>
       </Menu>
 
       {/* Input Area */}
@@ -361,14 +365,15 @@ const ChatWindow = ({ selectedUser, currentUser }) => {
         sx={{
           display: "flex",
           alignItems: "center",
-          p: 2,
-          borderTop: "1px solid #eee",
-          bgcolor: "#fff",
-          position: "relative",
+          p: isMobile ? 1 : 2,
+          gap: 1,
+          background: "rgba(255,255,255,0.1)",
+          backdropFilter: "blur(10px)",
+          borderTop: "1px solid rgba(255,255,255,0.2)",
         }}
       >
         <IconButton component="label">
-          <FaImage size={22} />
+          <FaImage color="#25D366" size={20} />
           <input
             hidden
             type="file"
@@ -378,30 +383,38 @@ const ChatWindow = ({ selectedUser, currentUser }) => {
         </IconButton>
 
         <IconButton onClick={() => setShowEmoji(!showEmoji)}>
-          <FaSmile size={22} />
+          <FaSmile color="#ffc107" size={22} />
         </IconButton>
 
         <input
           type="text"
           value={text}
           onChange={handleTyping}
-          placeholder="Message..."
+          placeholder="Type a message..."
           style={{
             flex: 1,
             border: "none",
             outline: "none",
             fontSize: "1rem",
+            color: "#fff",
             background: "transparent",
           }}
         />
 
         <IconButton onClick={handleSend}>
-          <FaPaperPlane size={22} color="#1976d2" />
+          <FaPaperPlane color="#25D366" size={22} />
         </IconButton>
 
         {showEmoji && (
-          <Box sx={{ position: "absolute", bottom: "60px", left: "10px", zIndex: 10 }}>
-            <EmojiPicker onEmojiClick={onEmojiClick} />
+          <Box
+            sx={{
+              position: "absolute",
+              bottom: "70px",
+              left: "10px",
+              zIndex: 10,
+            }}
+          >
+            <EmojiPicker onEmojiClick={(e) => setText(text + e.emoji)} />
           </Box>
         )}
       </Box>
