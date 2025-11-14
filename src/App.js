@@ -21,6 +21,7 @@ import Signup from "./pages/Signup";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NewsCard from "./components/news/NewsCard";
 import NewsFeed from "./components/news/NewsFeed";
+import ProductDetails from "./components/ecommerce/ProductDetails";
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -36,6 +37,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/news" element={<NewsFeed />} />
+          <Route path="/products" element={<ProductDetails />} />
            <Route
           path="/admin-dashboard"
           element={

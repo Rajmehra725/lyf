@@ -12,6 +12,8 @@ import Settings from "../../components/Settings";
 import Notifications from "../../components/Notifications";
 import AddNewsForm from "../../components/news/AddNewsForm";
 import DashboardNews from "../../components/news/DashboardNews";
+import EcommerceDashboard from "../../components/ecommerce/EcommerceDashboard";
+import ProductForm from "../../components/ecommerce/ProductForm";
 export default function Dashboard() {
   const [open, setOpen] = useState(false);
   const [sidebar, setSidebar] = useState(false);
@@ -37,6 +39,8 @@ export default function Dashboard() {
         return <Lyf />;
          case "news":
         return <DashboardNews />;
+      case "ecommerce":
+        return <EcommerceDashboard />;
       default:
         return <HomeFeed key={refreshFeed} />;
     }

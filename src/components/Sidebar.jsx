@@ -17,7 +17,8 @@ import {
   FiBell,
   FiLogOut,
   FiHeart,
-  FiGlobe, // 🌍 for News
+  FiGlobe,
+  FiShoppingCart, // 🛒 for Ecommerce
 } from "react-icons/fi";
 import axios from "axios";
 
@@ -120,6 +121,7 @@ export default function Sidebar({ open, onClose, onNavigate }) {
           { icon: <FiUser />, label: "Profile", page: "profile" },
           { icon: <FiHeart />, label: "Lyf", page: "lyf" },
           { icon: <FiGlobe />, label: "News", page: "news" }, // 📰 NEW section added here
+          { icon: <FiShoppingCart />, label: "Ecommerce", page: "ecommerce" },
           { icon: <FiBell />, label: "Notifications", page: "notifications" },
           { icon: <FiSettings />, label: "Settings", page: "settings" },
         ].map((item, i) => (
