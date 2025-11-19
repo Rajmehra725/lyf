@@ -1,183 +1,282 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  Box,
-  CircularProgress,
-  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
   Button,
   IconButton,
   Grid,
-  Card,
-  CardMedia,
+  Box,
+  CircularProgress,
+  Typography,
 } from "@mui/material";
-import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
 
-import { FaChevronLeft, FaChevronRight, FaTrash, FaEdit } from "react-icons/fa";
+import { FiX, FiUpload, FiTrash } from "react-icons/fi";
+import { createProduct, updateProduct } from "../../api/productAPI";
 
-const API = "http://localhost:5000/api/products"; // CHANGE LATER
+const ProductForm = ({ open, handleClose, refresh, editData }) => {
+  const [form, setForm] = useState({
+    name: "",
+    price: "",
+    category: "",
+    stock: "",
+    description: "",
+  });
 
-export default function ProductDetails() {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImages, setNewImages] = useState([]);
+  const [previewImages, setPreviewImages] = useState([]);
 
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [imageIndex, setImageIndex] = useState(0);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-
-  // Fetch Product
-  const fetchProduct = async () => {
-    try {
-      const res = await axios.get(`${API}/${id}`);
-      setProduct(res.data);
-    } catch (err) {
-      console.log(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchProduct();
-  }, [id]);
+    if (editData) {
+      setForm({
+        name: editData.name,
+        price: editData.price,
+        category: editData.category,
+        stock: editData.stock,
+        description: editData.description,
+      });
 
-  // Delete Product
-  const deleteProduct = async () => {
-    setDeleteLoading(true);
-    try {
-      await axios.delete(`${API}/${id}`);
-      navigate("/dashboard/products");
-    } catch (err) {
-      console.log(err);
-    } finally {
-      setDeleteLoading(false);
+      setExistingImages(editData.images || []);
+      setPreviewImages([]);  // ★ Edit Mode reset
+      setNewImages([]);      // ★ Edit Mode reset
+    } else {
+      setForm({
+        name: "",
+        price: "",
+        category: "",
+        stock: "",
+        description: "",
+      });
+
+      setExistingImages([]);
+      setNewImages([]);
+      setPreviewImages([]);
     }
+  }, [editData]);
+
+  // ★★★★★ MULTIPLE IMAGE PREVIEW FIXED HERE ★★★★★
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+
+    setNewImages((prev) => [...prev, ...files]);
+
+    const previews = files.map((file) => URL.createObjectURL(file));
+
+    setPreviewImages((prev) => [...prev, ...previews]); // <-- show all previews
   };
 
-  if (loading)
-    return (
-      <Box display="flex" justifyContent="center" mt={10}>
-        <CircularProgress />
-      </Box>
-    );
+  const removeNewImage = (i) => {
+    setNewImages(newImages.filter((_, index) => index !== i));
+    setPreviewImages(previewImages.filter((_, index) => index !== i));
+  };
 
-  if (!product)
-    return (
-      <Box textAlign="center" mt={10}>
-        <Typography variant="h6" color="error">
-          Product Not Found
-        </Typography>
-      </Box>
-    );
+  const removeExistingImage = (i) => {
+    setExistingImages(existingImages.filter((_, index) => index !== i));
+  };
 
-  const images = product.images || [];
+  const handleSubmit = async () => {
+    setSaving(true);
+
+    try {
+      const fd = new FormData();
+      fd.append("name", form.name);
+      fd.append("price", form.price);
+      fd.append("category", form.category);
+      fd.append("stock", form.stock);
+      fd.append("description", form.description);
+
+      existingImages.forEach((img) => fd.append("existingImages", img));
+      newImages.forEach((file) => fd.append("images", file));
+
+      if (editData) {
+        await updateProduct(editData._id, fd);
+      } else {
+        await createProduct(fd);
+      }
+
+      refresh();
+      handleClose();
+    } catch (err) {
+      console.log("PRODUCT SAVE ERROR:", err);
+    }
+
+    setSaving(false);
+  };
 
   return (
-    <Box p={3}>
-      {/* -------- Breadcrumb -------- */}
-      <Typography variant="body2" sx={{ mb: 2, cursor: "pointer" }} onClick={() => navigate(-1)}>
-        ← Back
-      </Typography>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      fullWidth
+      maxWidth="md"
+      sx={{ "& .MuiDialog-paper": { borderRadius: 4 } }}
+    >
+      <DialogTitle sx={{ fontWeight: 700 }}>
+        {editData ? "Edit Product" : "Add New Product"}
+      </DialogTitle>
 
-      <Grid container spacing={4}>
-        {/* -------- Left Images Section -------- */}
-        <Grid item xs={12} md={5}>
-          <Card sx={{ borderRadius: 3 }}>
-            <CardMedia
-              component="img"
-              sx={{
-                height: 380,
-                objectFit: "contain",
-                background: "#f5f5f5",
-              }}
-              src={images[imageIndex]}
-              alt="product"
+      <IconButton
+        onClick={handleClose}
+        sx={{ position: "absolute", right: 15, top: 15 }}
+      >
+        <FiX size={22} />
+      </IconButton>
+
+      <DialogContent dividers>
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Product Name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
-          </Card>
+          </Grid>
 
-          {/* --- Carousel Controls --- */}
-          <Box display="flex" justifyContent="space-between" mt={2}>
-            <IconButton onClick={() => setImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}>
-              <FaChevronLeft />
-            </IconButton>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="number"
+              label="Price"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
+            />
+          </Grid>
 
-            <IconButton
-              onClick={() =>
-                setImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Category"
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="number"
+              label="Stock"
+              value={form.stock}
+              onChange={(e) => setForm({ ...form, stock: e.target.value })}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              label="Description"
+              value={form.description}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
               }
-            >
-              <FaChevronRight />
-            </IconButton>
-          </Box>
+            />
+          </Grid>
 
-          {/* --- Thumbnail Row --- */}
-          <Box display="flex" mt={2} overflow="auto" gap={1}>
-            {images.map((img, i) => (
-              <Card
-                key={i}
-                onClick={() => setImageIndex(i)}
-                sx={{
-                  width: 70,
-                  height: 70,
-                  border: imageIndex === i ? "2px solid #1976d2" : "1px solid #ccc",
-                  cursor: "pointer",
-                }}
-              >
-                <CardMedia
-                  component="img"
-                  src={img}
-                  sx={{ height: "100%", objectFit: "cover" }}
-                />
-              </Card>
-            ))}
-          </Box>
-        </Grid>
-
-        {/* -------- Right Product Info -------- */}
-        <Grid item xs={12} md={7}>
-          <Typography variant="h4" fontWeight={700} mb={2}>
-            {product.name}
-          </Typography>
-
-          <Typography variant="body1" color="text.secondary" mb={3}>
-            {product.description}
-          </Typography>
-
-          <Typography variant="h5" color="green" fontWeight={600} mb={4}>
-            ₹ {product.price}
-          </Typography>
-
-          {/* Action Buttons */}
-          <Box display="flex" gap={2}>
+          <Grid item xs={12}>
             <Button
-              variant="contained"
-              sx={{ borderRadius: 20, px: 4 }}
-              onClick={() => alert("Added to cart")}
-            >
-              Add to Cart
-            </Button>
-
-            <Button
+              startIcon={<FiUpload />}
               variant="outlined"
-              color="primary"
-              startIcon={<FaEdit />}
-              onClick={() => navigate(`/dashboard/edit-product/${id}`)}
+              component="label"
+              sx={{ borderRadius: 3 }}
             >
-              Edit
+              Upload Images
+              <input
+                hidden
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
             </Button>
 
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<FaTrash />}
-              onClick={deleteProduct}
-              disabled={deleteLoading}
-            >
-              {deleteLoading ? <CircularProgress size={20} /> : "Delete"}
-            </Button>
-          </Box>
+            {/* Existing Images */}
+            {existingImages.length > 0 && (
+              <Box mt={2} display="flex" gap={2} flexWrap="wrap">
+                {existingImages.map((img, i) => (
+                  <Box key={i} sx={{ position: "relative" }}>
+                    <img
+                      src={img}
+                      style={{
+                        width: 120,
+                        height: 120,
+                        objectFit: "cover",
+                        borderRadius: 10,
+                        border: "1px solid #ccc",
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => removeExistingImage(i)}
+                      sx={{
+                        position: "absolute",
+                        top: -8,
+                        right: -8,
+                        bgcolor: "white",
+                        boxShadow: 1,
+                      }}
+                    >
+                      <FiTrash size={15} color="#d32f2f" />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            )}
+
+            {/* ★ NEW IMAGES PREVIEW FIXED */}
+            <Box mt={2} display="flex" gap={2} flexWrap="wrap">
+              {previewImages.map((img, i) => (
+                <Box key={i} sx={{ position: "relative" }}>
+                  <img
+                    src={img}
+                    style={{
+                      width: 120,
+                      height: 120,
+                      objectFit: "cover",
+                      borderRadius: 10,
+                      border: "1px solid #ccc",
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => removeNewImage(i)}
+                    sx={{
+                      position: "absolute",
+                      top: -8,
+                      right: -8,
+                      bgcolor: "white",
+                      boxShadow: 1,
+                    }}
+                  >
+                    <FiTrash size={15} color="#d32f2f" />
+                  </IconButton>
+                </Box>
+              ))}
+            </Box>
+          </Grid>
         </Grid>
-      </Grid>
-    </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 3 }}>
+        <Button onClick={handleClose}>Cancel</Button>
+        <Button
+          variant="contained"
+          sx={{ px: 4, py: 1.2, borderRadius: 3 }}
+          onClick={handleSubmit}
+          disabled={saving}
+        >
+          {saving ? <CircularProgress size={24} /> : editData ? "Update" : "Create"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
-}
+};
+
+export default ProductForm;
