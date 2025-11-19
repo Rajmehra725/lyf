@@ -1,132 +1,227 @@
 import React, { useEffect, useState } from "react";
 import {
-  Box,
-  Typography,
   Button,
-  Grid,
   Card,
   CardContent,
-  CardActions,
-  CardMedia,
-  Divider
+  Typography,
+  Grid,
+  IconButton,
+  Box,
+  Tooltip,
+  CircularProgress,
 } from "@mui/material";
-import API from "../../api/axiosInstance";
-import ProductForm from "../../components/ecommerce/ProductForm";
 
-const Dashboard = () => {
+import { FiEdit, FiTrash } from "react-icons/fi";
+import Slider from "react-slick";
+
+import ProductForm from "./ProductForm";
+import { getProducts, deleteProduct } from "../../api/productAPI";
+
+const DashboardProducts = () => {
   const [products, setProducts] = useState([]);
-  const [editItem, setEditItem] = useState(null);
-  const [open, setOpen] = useState(false);
+  const [openForm, setOpenForm] = useState(false);
+  const [editData, setEditData] = useState(null);
 
-  // Fetch all products
-  const fetchProducts = async () => {
+  const [deleteLoadingId, setDeleteLoadingId] = useState(null); // ⭐
+
+  const loadProducts = async () => {
     try {
-      const res = await API.get("/products");
-      setProducts(res.data);
+      const { data } = await getProducts();
+      setProducts(data.products || data || []);
     } catch (err) {
-      console.log("Error fetching products:", err);
+      console.log(err);
     }
   };
 
   useEffect(() => {
-    fetchProducts();
+    loadProducts();
   }, []);
 
-  // Delete Product
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    if (!window.confirm("Delete this product?")) return;
+
+    setDeleteLoadingId(id); // ⭐ Start loading state
 
     try {
-      await API.delete(`/products/${id}`);
-      fetchProducts();
+      await deleteProduct(id);
+      await loadProducts();
     } catch (err) {
-      console.log("Delete Error:", err);
+      console.log(err);
     }
+
+    setDeleteLoadingId(null); // ⭐ Stop loading
+  };
+
+  const handleEdit = (product) => {
+    setEditData(product);
+    setOpenForm(true);
+  };
+
+  // Slider Config
+  const settings = {
+    dots: true,
+    infinite: true,
+    arrows: false,
+    speed: 500,
+    slidesToShow: 1,
+    slidesToScroll: 1,
   };
 
   return (
-    <Box p={3}>
-      <Typography variant="h4" fontWeight="bold" mb={2}>
-        🛒 Product Dashboard (CRUD)
-      </Typography>
-
+    <>
+      {/* ADD PRODUCT BUTTON */}
       <Button
         variant="contained"
-        size="large"
-        onClick={() => {
-          setEditItem(null);
-          setOpen(true);
+        sx={{
+          mb: 3,
+          px: 3,
+          py: 1,
+          fontWeight: 600,
+          borderRadius: 3,
         }}
-        sx={{ mb: 2 }}
+        onClick={() => {
+          setEditData(null);
+          setOpenForm(true);
+        }}
       >
-        + Add New Product
+        + Add Product
       </Button>
 
-      <Divider />
-
-      <Grid container spacing={3} mt={1}>
-        {products.length === 0 && (
-          <Typography mt={3} ml={1}>
-            No products found. Add new products to get started.
-          </Typography>
-        )}
-
-        {products.map((item) => (
-          <Grid item xs={12} sm={6} md={4} key={item._id}>
-            <Card sx={{ borderRadius: 3, boxShadow: 3 }}>
-              {item.image && (
-                <CardMedia
-                  component="img"
-                  height="180"
-                  image={item.image}
-                  alt="Product Image"
-                />
-              )}
-
-              <CardContent>
-                <Typography variant="h6">{item.name}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {item.description?.substring(0, 80)}...
-                </Typography>
-
-                <Typography variant="h6" color="primary" mt={1}>
-                  ₹ {item.price}
-                </Typography>
-              </CardContent>
-
-              <CardActions sx={{ justifyContent: "space-between" }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    setEditItem(item);
-                    setOpen(true);
+      {/* PRODUCT GRID */}
+      <Grid container spacing={3}>
+        {products.map((p) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={p._id}>
+            <Card
+              sx={{
+                borderRadius: 4,
+                overflow: "hidden",
+                position: "relative",
+                transition: "0.3s",
+                boxShadow: "0px 4px 15px rgba(0,0,0,0.12)",
+                "&:hover": {
+                  transform: "translateY(-5px)",
+                  boxShadow: "0px 6px 20px rgba(0,0,0,0.18)",
+                },
+                opacity: deleteLoadingId === p._id ? 0.5 : 1, // ⭐ blur visual
+              }}
+            >
+              {/* DELETE LOADING OVERLAY */}
+              {deleteLoadingId === p._id && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    bgcolor: "rgba(255, 255, 255, 0.6)",
+                    zIndex: 20,
                   }}
                 >
-                  Edit
-                </Button>
+                  <CircularProgress size={40} />
+                </Box>
+              )}
 
-                <Button
-                  color="error"
-                  variant="contained"
-                  onClick={() => handleDelete(item._id)}
+              {/* TOP BUTTONS */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  zIndex: 10,
+                  display: "flex",
+                  gap: 1,
+                }}
+              >
+                <Tooltip title="Edit">
+                  <span>
+                    <IconButton
+                      size="small"
+                      disabled={deleteLoadingId === p._id} // ⭐ disabled while deleting
+                      onClick={() => handleEdit(p)}
+                      sx={{
+                        bgcolor: "white",
+                        "&:hover": { bgcolor: "#e8e8e8" },
+                      }}
+                    >
+                      <FiEdit size={18} color="#1976d2" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="Delete">
+                  <span>
+                    <IconButton
+                      size="small"
+                      disabled={deleteLoadingId === p._id} // ⭐
+                      onClick={() => handleDelete(p._id)}
+                      sx={{
+                        bgcolor: "white",
+                        "&:hover": { bgcolor: "#e8e8e8" },
+                      }}
+                    >
+                      <FiTrash size={18} color="#d32f2f" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+
+              {/* IMAGE SLIDER */}
+              {p.images?.length > 0 && (
+                <Slider {...settings}>
+                  {p.images.map((img, idx) => (
+                    <div key={idx}>
+                      <img
+                        src={img}
+                        alt="product"
+                        style={{
+                          width: "100%",
+                          height: 220,
+                          objectFit: "contain",
+                          background: "#fafafa",
+                          padding: "15px",
+                        }}
+                      />
+                    </div>
+                  ))}
+                </Slider>
+              )}
+
+              {/* PRODUCT DETAILS */}
+              <CardContent sx={{ textAlign: "center" }}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  {p.name}
+                </Typography>
+
+                <Typography
+                  variant="h6"
+                  sx={{ color: "#d32f2f", fontWeight: "bold", my: 0.5 }}
                 >
-                  Delete
-                </Button>
-              </CardActions>
+                  ₹{p.price}
+                </Typography>
+
+                <Typography sx={{ fontSize: 14, color: "gray" }}>
+                  {p.category}
+                </Typography>
+
+                <Typography sx={{ fontSize: 13, mt: 1, color: "#555" }}>
+                  Stock: {p.stock}
+                </Typography>
+              </CardContent>
             </Card>
           </Grid>
         ))}
       </Grid>
 
-      {/* Product Form Modal */}
+      {/* PRODUCT FORM */}
       <ProductForm
-        open={open}
-        setOpen={setOpen}
-        editItem={editItem}
-        refresh={fetchProducts}
+        open={openForm}
+        handleClose={() => setOpenForm(false)}
+        refresh={loadProducts}
+        editData={editData}
       />
-    </Box>
+    </>
   );
 };
 
-export default Dashboard;
+export default DashboardProducts;

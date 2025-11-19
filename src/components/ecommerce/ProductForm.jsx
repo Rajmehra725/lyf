@@ -1,128 +1,183 @@
 import React, { useEffect, useState } from "react";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  TextField,
-  Button,
   Box,
-  Typography
+  CircularProgress,
+  Typography,
+  Button,
+  IconButton,
+  Grid,
+  Card,
+  CardMedia,
 } from "@mui/material";
-import API from "../../api/axiosInstance";
+import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
 
-const ProductForm = ({ open, setOpen, editItem, refresh }) => {
-  const [form, setForm] = useState({
-    name: "",
-    price: "",
-    description: "",
-    image: ""
-  });
+import { FaChevronLeft, FaChevronRight, FaTrash, FaEdit } from "react-icons/fa";
 
-  const [preview, setPreview] = useState("");
+const API = "http://localhost:5000/api/products"; // CHANGE LATER
 
-  // Load existing product in form when editing
-  useEffect(() => {
-    if (editItem) {
-      setForm(editItem);
-      setPreview(editItem.image);
-    } else {
-      setForm({ name: "", price: "", description: "", image: "" });
-      setPreview("");
-    }
-  }, [editItem]);
+export default function ProductDetails() {
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-  // Image Handler
-  const handleImageChange = async (e) => {
-    const file = e.target.files[0];
-    setPreview(URL.createObjectURL(file));
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [imageIndex, setImageIndex] = useState(0);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-    const formData = new FormData();
-    formData.append("image", file);
-
-    const res = await API.post("/upload", formData);
-    setForm({ ...form, image: res.data.url });
-  };
-
-  // Submit the form
-  const handleSubmit = async () => {
-    if (!form.name || !form.price) {
-      alert("Name and Price are required!");
-      return;
-    }
-
+  // Fetch Product
+  const fetchProduct = async () => {
     try {
-      if (editItem) {
-        await API.put(`/products/${editItem._id}`, form);
-      } else {
-        await API.post("/products", form);
-      }
-      refresh();
-      setOpen(false);
+      const res = await axios.get(`${API}/${id}`);
+      setProduct(res.data);
     } catch (err) {
-      console.log("Submit Error:", err);
+      console.log(err);
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchProduct();
+  }, [id]);
+
+  // Delete Product
+  const deleteProduct = async () => {
+    setDeleteLoading(true);
+    try {
+      await axios.delete(`${API}/${id}`);
+      navigate("/dashboard/products");
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  if (loading)
+    return (
+      <Box display="flex" justifyContent="center" mt={10}>
+        <CircularProgress />
+      </Box>
+    );
+
+  if (!product)
+    return (
+      <Box textAlign="center" mt={10}>
+        <Typography variant="h6" color="error">
+          Product Not Found
+        </Typography>
+      </Box>
+    );
+
+  const images = product.images || [];
 
   return (
-    <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-      <DialogTitle>
-        {editItem ? "Edit Product" : "Add New Product"}
-      </DialogTitle>
+    <Box p={3}>
+      {/* -------- Breadcrumb -------- */}
+      <Typography variant="body2" sx={{ mb: 2, cursor: "pointer" }} onClick={() => navigate(-1)}>
+        ← Back
+      </Typography>
 
-      <DialogContent>
-        <Box mt={2} display="flex" flexDirection="column" gap={2}>
-          <TextField
-            label="Product Name"
-            fullWidth
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
+      <Grid container spacing={4}>
+        {/* -------- Left Images Section -------- */}
+        <Grid item xs={12} md={5}>
+          <Card sx={{ borderRadius: 3 }}>
+            <CardMedia
+              component="img"
+              sx={{
+                height: 380,
+                objectFit: "contain",
+                background: "#f5f5f5",
+              }}
+              src={images[imageIndex]}
+              alt="product"
+            />
+          </Card>
 
-          <TextField
-            label="Price"
-            fullWidth
-            type="number"
-            value={form.price}
-            onChange={(e) => setForm({ ...form, price: e.target.value })}
-          />
+          {/* --- Carousel Controls --- */}
+          <Box display="flex" justifyContent="space-between" mt={2}>
+            <IconButton onClick={() => setImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}>
+              <FaChevronLeft />
+            </IconButton>
 
-          <TextField
-            label="Description"
-            fullWidth
-            multiline
-            rows={3}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
+            <IconButton
+              onClick={() =>
+                setImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+              }
+            >
+              <FaChevronRight />
+            </IconButton>
+          </Box>
 
-          <Button variant="contained" component="label">
-            Upload Image
-            <input type="file" hidden onChange={handleImageChange} />
-          </Button>
+          {/* --- Thumbnail Row --- */}
+          <Box display="flex" mt={2} overflow="auto" gap={1}>
+            {images.map((img, i) => (
+              <Card
+                key={i}
+                onClick={() => setImageIndex(i)}
+                sx={{
+                  width: 70,
+                  height: 70,
+                  border: imageIndex === i ? "2px solid #1976d2" : "1px solid #ccc",
+                  cursor: "pointer",
+                }}
+              >
+                <CardMedia
+                  component="img"
+                  src={img}
+                  sx={{ height: "100%", objectFit: "cover" }}
+                />
+              </Card>
+            ))}
+          </Box>
+        </Grid>
 
-          {preview && (
-            <Box mt={1}>
-              <Typography fontWeight="bold">Preview:</Typography>
-              <img
-                src={preview}
-                alt="Preview"
-                style={{ width: "100%", borderRadius: "10px" }}
-              />
-            </Box>
-          )}
+        {/* -------- Right Product Info -------- */}
+        <Grid item xs={12} md={7}>
+          <Typography variant="h4" fontWeight={700} mb={2}>
+            {product.name}
+          </Typography>
 
-          <Button
-            variant="contained"
-            size="large"
-            onClick={handleSubmit}
-            sx={{ mt: 2 }}
-          >
-            {editItem ? "Update Product" : "Create Product"}
-          </Button>
-        </Box>
-      </DialogContent>
-    </Dialog>
+          <Typography variant="body1" color="text.secondary" mb={3}>
+            {product.description}
+          </Typography>
+
+          <Typography variant="h5" color="green" fontWeight={600} mb={4}>
+            ₹ {product.price}
+          </Typography>
+
+          {/* Action Buttons */}
+          <Box display="flex" gap={2}>
+            <Button
+              variant="contained"
+              sx={{ borderRadius: 20, px: 4 }}
+              onClick={() => alert("Added to cart")}
+            >
+              Add to Cart
+            </Button>
+
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<FaEdit />}
+              onClick={() => navigate(`/dashboard/edit-product/${id}`)}
+            >
+              Edit
+            </Button>
+
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<FaTrash />}
+              onClick={deleteProduct}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? <CircularProgress size={20} /> : "Delete"}
+            </Button>
+          </Box>
+        </Grid>
+      </Grid>
+    </Box>
   );
-};
-
-export default ProductForm;
+}
