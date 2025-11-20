@@ -70,7 +70,8 @@ const PublicAlbums = () => {
 
               {/* QR Code */}
               <div className="bg-white p-3 inline-block rounded-xl shadow mb-3">
-                <QRCode value={album.albumId} size={140} />
+               <QRCode value={`${window.location.origin}/album/${album.albumId}`} size={140} />
+
               </div>
 
               <Typography variant="body2" className="text-gray-600 mb-2">

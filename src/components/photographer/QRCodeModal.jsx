@@ -2,7 +2,7 @@ import React from "react";
 import QRCode from "react-qr-code";
 
 const QRCodeModal = ({ album, onClose }) => {
-  const url = `https://lyf-fv59.onrender.com/album/${album._id}`;
+  const url = `https://lyf-fv59.onrender.com/album/${album.albumId}`;
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 p-4">

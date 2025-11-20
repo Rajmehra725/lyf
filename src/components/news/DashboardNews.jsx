@@ -45,7 +45,16 @@ export default function Dashboard() {
   const handleDelete = async (id, authorId) => {
     if (!token) return setError("You must be logged in to delete news");
 
-    const userId = JSON.parse(atob(token.split(".")[1])).id;
+    if (!authorId) return setError("Cannot delete this news (author not found)");
+
+    // Safe JWT parsing
+    let userId;
+    try {
+      userId = JSON.parse(atob(token.split(".")[1])).id;
+    } catch {
+      return setError("Invalid token");
+    }
+
     if (userId !== authorId) {
       return setError("You can only delete your own news!");
     }
@@ -57,7 +66,9 @@ export default function Dashboard() {
       await axios.delete(`${API}/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      fetchNews();
+
+      // Update state locally instead of refetching
+      setNewsList(newsList.filter((news) => news._id !== id));
     } catch (err) {
       console.error("Delete error:", err.response || err);
       setError(err.response?.data?.message || "Failed to delete news");
@@ -156,7 +167,7 @@ export default function Dashboard() {
                     variant="contained"
                     color="error"
                     disabled={deleteLoadingId === news._id}
-                    onClick={() => handleDelete(news._id, news.author._id)}
+                    onClick={() => handleDelete(news._id, news.author?._id)}
                   >
                     {deleteLoadingId === news._id ? (
                       <CircularProgress size={20} sx={{ color: "#fff" }} />
