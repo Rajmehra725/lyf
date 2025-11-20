@@ -14,6 +14,8 @@ import AddNewsForm from "../../components/news/AddNewsForm";
 import DashboardNews from "../../components/news/DashboardNews";
 import EcommerceDashboard from "../../components/ecommerce/EcommerceDashboard";
 import ProductForm from "../../components/ecommerce/ProductForm";
+import PhotographerDashboard from "../../components/photographer/PhotographerDashboard";
+
 export default function Dashboard() {
   const [open, setOpen] = useState(false);
   const [sidebar, setSidebar] = useState(false);
@@ -41,6 +43,10 @@ export default function Dashboard() {
         return <DashboardNews />;
       case "ecommerce":
         return <EcommerceDashboard />;
+        
+    // ⭐ NEW — Photographer Dashboard
+    case "photographer-dashboard":
+      return <PhotographerDashboard />;
       default:
         return <HomeFeed key={refreshFeed} />;
     }

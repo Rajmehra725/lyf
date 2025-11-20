@@ -25,6 +25,7 @@ const navItems = [
   { text: "About", path: "/about" },
   { text: "News", path: "/news" },
   { text: "Products", path: "/products" },
+   { text: "Album", path: "/album" },
 ];
 
 export default function Navbar() {

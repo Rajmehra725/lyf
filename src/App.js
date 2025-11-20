@@ -22,6 +22,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import NewsCard from "./components/news/NewsCard";
 import NewsFeed from "./components/news/NewsFeed";
 import ProductDetails from "./components/ecommerce/ProductDetails";
+import PublicAlbum from "./components/photographer/PublicAlbum";
+import AlbumView from "./components/photographer/AlbumView";
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -38,6 +40,10 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/news" element={<NewsFeed />} />
           <Route path="/products" element={<ProductDetails />} />
+          <Route path="/album" element={<PublicAlbum />} />
+          <Route path="/album/:albumId" element={<AlbumView />} />
+
+
            <Route
           path="/admin-dashboard"
           element={
