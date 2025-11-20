@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api/albums",
+  baseURL: "https://raaznotes-backend.onrender.com/api/albums",
 });
 
 // 👉 Create album
