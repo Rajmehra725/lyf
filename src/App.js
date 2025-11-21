@@ -13,9 +13,9 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
-import Feelings from "./pages/Feelings";
+
 import Safety from "./pages/Safety";
-import Upload from "./pages/Upload";
+
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -33,9 +33,9 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
-          <Route path="/feelings" element={<Feelings />} />
+          
           <Route path="/safety" element={<Safety />} />
-          <Route path="/upload" element={<Upload />} />
+        
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/news" element={<NewsFeed />} />

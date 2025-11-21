@@ -19,8 +19,6 @@ import { FaRegUserCircle } from "react-icons/fa";
 
 const navItems = [
   { text: "Home", path: "/" },
-  { text: "Feelings", path: "/feelings" },
-  { text: "Upload", path: "/upload" },
   { text: "Safety", path: "/safety" },
   { text: "About", path: "/about" },
   { text: "News", path: "/news" },
